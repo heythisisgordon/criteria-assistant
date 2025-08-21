@@ -9,6 +9,7 @@ from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QObject, pyqtSignal
 import io
 import json
+import traceback
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
@@ -89,7 +90,8 @@ class PDFProcessor(QObject):
             return True
             
         except Exception as e:
-            self.error_occurred.emit(f"Error loading PDF: {str(e)}")
+            tb = traceback.format_exc()
+            self.error_occurred.emit(f"Error loading PDF:\n{tb}")
             return False
     
     def _extract_page_metadata(self):
@@ -178,7 +180,8 @@ class PDFProcessor(QObject):
             return pixmap
             
         except Exception as e:
-            self.error_occurred.emit(f"Error rendering page {page_number}: {str(e)}")
+            tb = traceback.format_exc()
+            self.error_occurred.emit(f"Error rendering page {page_number}:\n{tb}")
             return None
     
     def _apply_dual_highlighting(self, image: Image.Image, page_number: int, zoom_level: float) -> Image.Image:
