@@ -29,6 +29,9 @@ if not os.path.exists(pdf_path):
     st.error("Place 'ufc_example.pdf' inside data/")
     st.stop()
 
+# Open the PDF once and reuse the document
+doc = fitz.open(pdf_path)
+
 visible_pages = sorted(df["page"].unique())
 max_per_row = st.sidebar.slider("Pages per row", 2, 6, 3)
 keyword_search = st.sidebar.text_input("🔍 Filter Keywords")
@@ -39,7 +42,7 @@ for i in range(0, len(visible_pages), max_per_row):
     cols = st.columns(len(visible_pages[i:i + max_per_row]))
     for j, page_num in enumerate(visible_pages[i:i + max_per_row]):
         page_df = df[df["page"] == page_num]
-        page = fitz.open(pdf_path).load_page(page_num)
+        page = doc.load_page(page_num)
         pix = page.get_pixmap(dpi=150)
         img = Image.open(io.BytesIO(pix.tobytes("png")))
         draw = ImageDraw.Draw(img)
@@ -71,3 +74,6 @@ for cat, color in category_colors.items():
         f"<div style='background:{color};padding:4px 10px;border-radius:20px;color:white;display:inline-block;margin:2px'>{cat}</div>",
         unsafe_allow_html=True
     )
+
+# Close the PDF document after rendering
+doc.close()
