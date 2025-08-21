@@ -9,7 +9,7 @@ from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import QObject, pyqtSignal
 import io
 import json
-import traceback
+import logging
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 
@@ -89,9 +89,8 @@ class PDFProcessor(QObject):
             
             return True
             
-        except Exception as e:
-            tb = traceback.format_exc()
-            self.error_occurred.emit(f"Error loading PDF:\n{tb}")
+        except Exception:
+            logging.exception("Error loading PDF")
             return False
     
     def _extract_page_metadata(self):
@@ -138,8 +137,8 @@ class PDFProcessor(QObject):
                     urls_found=urls_found
                 )
                 
-            except Exception as e:
-                print(f"Error processing page {page_num}: {e}")
+            except Exception:
+                logging.exception(f"Error processing page {page_num}")
     
     def render_page(self, page_number: int, zoom_level: float = 1.0) -> Optional[QPixmap]:
         """
@@ -179,9 +178,8 @@ class PDFProcessor(QObject):
             
             return pixmap
             
-        except Exception as e:
-            tb = traceback.format_exc()
-            self.error_occurred.emit(f"Error rendering page {page_number}:\n{tb}")
+        except Exception:
+            logging.exception(f"Error rendering page {page_number}")
             return None
     
     def _apply_dual_highlighting(self, image: Image.Image, page_number: int, zoom_level: float) -> Image.Image:
@@ -205,7 +203,8 @@ class PDFProcessor(QObject):
         # Use default font
         try:
             font = ImageFont.load_default()
-        except:
+        except Exception as e:
+            logging.exception(e)
             font = None
         
         # Scale factor for bounding boxes based on zoom
