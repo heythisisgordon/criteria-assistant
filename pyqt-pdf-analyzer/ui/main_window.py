@@ -12,22 +12,29 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QImage
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from core.config import Config
 from core.keyword_provider import KeywordProvider
 from core.url_provider import URLProvider
 from core.annotation_system import AnnotationManager, AnnotationType
 from core.pdf_processor import PDFProcessor, PageMetadata
+from core.debug_processor import DebugPDFProcessor
+from ui.debug_toolbar import DebugToolbar, DebugLogWidget
 from ui.pdf_viewer import PDFViewerWidget
 from ui.keyword_panel import KeywordPanel
+
 
 class PDFRenderThread(QThread):
     """Thread for rendering PDF pages without blocking the UI."""
     page_rendered = pyqtSignal(QImage, int)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, pdf_processor: PDFProcessor, page_number: int, zoom_level: float):
+    def __init__(
+            self,
+            pdf_processor: PDFProcessor,
+            page_number: int,
+            zoom_level: float):
         super().__init__()
         self.pdf_processor = pdf_processor
         self.page_number = page_number
@@ -35,7 +42,8 @@ class PDFRenderThread(QThread):
 
     def run(self):
         try:
-            image = self.pdf_processor.render_page(self.page_number, self.zoom_level)
+            image = self.pdf_processor.render_page(
+                self.page_number, self.zoom_level)
             if image:
                 self.page_rendered.emit(image, self.page_number)
             else:
@@ -44,8 +52,10 @@ class PDFRenderThread(QThread):
             logging.exception("Error rendering page")
             self.error_occurred.emit(f"Error rendering page: {str(e)}")
 
+
 class MainWindow(QMainWindow):
     """Main application window."""
+
     def __init__(self):
         super().__init__()
         # Initialize annotation framework
@@ -53,10 +63,12 @@ class MainWindow(QMainWindow):
         self.keyword_provider = KeywordProvider()
         self.url_provider = URLProvider()
         # Register providers
-        self.annotation_manager.register_provider(AnnotationType.KEYWORD, self.keyword_provider)
-        self.annotation_manager.register_provider(AnnotationType.URL_VALIDATION, self.url_provider)
+        self.annotation_manager.register_provider(
+            AnnotationType.KEYWORD, self.keyword_provider)
+        self.annotation_manager.register_provider(
+            AnnotationType.URL_VALIDATION, self.url_provider)
         # Register renderers inside PDFProcessor
-        self.pdf_processor = PDFProcessor(self.annotation_manager)
+        self.pdf_processor = DebugPDFProcessor(self.annotation_manager)
         self.current_render_thread: Optional[PDFRenderThread] = None
 
         # UI components
@@ -68,6 +80,22 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._setup_connections()
 
+        # Debug UI integration
+        self.debug_toolbar = DebugToolbar(self)
+        self.addToolBar(self.debug_toolbar)
+        self.debug_log_widget = DebugLogWidget(self)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.debug_log_widget)
+        # Connect debug signals
+        self.debug_toolbar.step_requested.connect(self._on_debug_step)
+        self.pdf_processor.step_completed.connect(
+            self.debug_log_widget.append_metrics)
+        self.pdf_processor.step_failed.connect(
+            self.debug_log_widget.append_error)
+        self.pdf_processor.step_completed.connect(
+            lambda name, metrics: self.debug_toolbar.set_status(f"{name} ✓"))
+        self.pdf_processor.step_failed.connect(
+            lambda name, err, ctx: self.debug_toolbar.set_status(f"{name} ✗"))
+
         # Load default data
         self.keyword_provider.load_data()
         self.url_provider.load_data()
@@ -75,7 +103,9 @@ class MainWindow(QMainWindow):
         self.keyword_panel.update_url_categories()
 
         self.setWindowTitle("UFC PDF Document Analyzer")
-        self.setMinimumSize(Config.DEFAULT_WINDOW_WIDTH, Config.DEFAULT_WINDOW_HEIGHT)
+        self.setMinimumSize(
+            Config.DEFAULT_WINDOW_WIDTH,
+            Config.DEFAULT_WINDOW_HEIGHT)
         self.resize(Config.DEFAULT_WINDOW_WIDTH, Config.DEFAULT_WINDOW_HEIGHT)
 
     def _setup_ui(self):
@@ -122,9 +152,21 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         view_menu = menubar.addMenu("&View")
-        view_menu.addAction(QAction("Zoom &In", self, triggered=self.pdf_viewer.zoom_in))
-        view_menu.addAction(QAction("Zoom &Out", self, triggered=self.pdf_viewer.zoom_out))
-        view_menu.addAction(QAction("&Fit to Width", self, triggered=self.pdf_viewer.fit_to_width))
+        view_menu.addAction(
+            QAction(
+                "Zoom &In",
+                self,
+                triggered=self.pdf_viewer.zoom_in))
+        view_menu.addAction(
+            QAction(
+                "Zoom &Out",
+                self,
+                triggered=self.pdf_viewer.zoom_out))
+        view_menu.addAction(
+            QAction(
+                "&Fit to Width",
+                self,
+                triggered=self.pdf_viewer.fit_to_width))
         help_menu = menubar.addMenu("&Help")
         about_action = QAction("&About", self, triggered=self.show_about)
         help_menu.addAction(about_action)
@@ -134,8 +176,16 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
         toolbar.addAction(QAction("Open PDF", self, triggered=self.open_pdf))
         toolbar.addSeparator()
-        toolbar.addAction(QAction("◀ Previous", self, triggered=self.pdf_viewer.previous_page))
-        toolbar.addAction(QAction("Next ▶", self, triggered=self.pdf_viewer.next_page))
+        toolbar.addAction(
+            QAction(
+                "◀ Previous",
+                self,
+                triggered=self.pdf_viewer.previous_page))
+        toolbar.addAction(
+            QAction(
+                "Next ▶",
+                self,
+                triggered=self.pdf_viewer.next_page))
 
     def _create_status_bar(self):
         self.status_bar = QStatusBar()
@@ -143,19 +193,22 @@ class MainWindow(QMainWindow):
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
-        self.status_bar.showMessage("Ready - Load a PDF document to begin analysis")
+        self.status_bar.showMessage(
+            "Ready - Load a PDF document to begin analysis")
 
     def _setup_connections(self):
         self.pdf_viewer.page_changed.connect(self._on_page_changed)
         self.pdf_viewer.zoom_changed.connect(self._on_zoom_changed)
         self.keyword_panel.category_toggled.connect(self._on_category_toggled)
-        self.keyword_panel.url_status_toggled.connect(self._on_url_status_toggled)
+        self.keyword_panel.url_status_toggled.connect(
+            self._on_url_status_toggled)
         self.keyword_panel.search_changed.connect(self._on_search_changed)
         self.keyword_panel.refresh_requested.connect(self._refresh_annotations)
         self.pdf_processor.error_occurred.connect(self._on_pdf_error)
 
     def open_pdf(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open PDF Document", "", "PDF Files (*.pdf);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open PDF Document", "", "PDF Files (*.pdf);;All Files (*)")
         if path:
             self._load_pdf(path)
 
@@ -167,25 +220,38 @@ class MainWindow(QMainWindow):
             count = self.pdf_processor.get_page_count()
             self.pdf_viewer.set_total_pages(count)
             self._render_current_page()
-            self.setWindowTitle(f"UFC PDF Document Analyzer - {os.path.basename(file_path)}")
-            self.status_bar.showMessage(f"Loaded PDF: {os.path.basename(file_path)} ({count} pages)")
+            self.debug_toolbar.set_page_count(count)
+            self.setWindowTitle(
+                f"UFC PDF Document Analyzer - {os.path.basename(file_path)}")
+            self.status_bar.showMessage(
+                f"Loaded PDF: {
+                    os.path.basename(file_path)} ({count} pages)")
         else:
-            QMessageBox.critical(self, "Error Loading PDF", f"Could not load PDF:\n{file_path}")
+            QMessageBox.critical(
+                self,
+                "Error Loading PDF",
+                f"Could not load PDF:\n{file_path}")
             self.status_bar.showMessage("Failed to load PDF")
         self.progress_bar.setVisible(False)
 
     def load_keywords(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Load Keywords CSV", "", "CSV Files (*.csv);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Keywords CSV", "", "CSV Files (*.csv);;All Files (*)")
         if path and self.keyword_provider.load_data(path):
             self.keyword_panel.update_categories()
-            self.status_bar.showMessage(f"Keywords loaded from: {os.path.basename(path)}")
+            self.status_bar.showMessage(
+                f"Keywords loaded from: {
+                    os.path.basename(path)}")
             self._render_current_page()
 
     def load_url_validations(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Load URL Validations CSV", "", "CSV Files (*.csv);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load URL Validations CSV", "", "CSV Files (*.csv);;All Files (*)")
         if path and self.url_provider.load_data(path):
             self.keyword_panel.update_url_categories()
-            self.status_bar.showMessage(f"URL validations loaded from: {os.path.basename(path)}")
+            self.status_bar.showMessage(
+                f"URL validations loaded from: {
+                    os.path.basename(path)}")
             self._render_current_page()
 
     def _render_current_page(self):
@@ -196,8 +262,10 @@ class MainWindow(QMainWindow):
         if self.current_render_thread and self.current_render_thread.isRunning():
             self.current_render_thread.terminate()
             self.current_render_thread.wait()
-        self.current_render_thread = PDFRenderThread(self.pdf_processor, page, zoom)
-        self.current_render_thread.page_rendered.connect(self.pdf_viewer.set_pixmap)
+        self.current_render_thread = PDFRenderThread(
+            self.pdf_processor, page, zoom)
+        self.current_render_thread.page_rendered.connect(
+            self.pdf_viewer.set_pixmap)
         self.current_render_thread.error_occurred.connect(self._on_pdf_error)
         self.current_render_thread.start()
         self._update_page_metadata(page)
@@ -212,20 +280,27 @@ class MainWindow(QMainWindow):
 
     def _on_category_toggled(self, category: str, enabled: bool):
         self._render_current_page()
-        self.status_bar.showMessage(f"Category '{category}' {'enabled' if enabled else 'disabled'}")
+        self.status_bar.showMessage(
+            f"Category '{category}' {
+                'enabled' if enabled else 'disabled'}")
 
     def _on_url_status_toggled(self, status: str, enabled: bool):
         self._render_current_page()
-        self.status_bar.showMessage(f"URL status '{status}' {'enabled' if enabled else 'disabled'}")
+        self.status_bar.showMessage(
+            f"URL status '{status}' {
+                'enabled' if enabled else 'disabled'}")
 
     def _on_search_changed(self, term: str):
-        self.status_bar.showMessage(f"{'Searching for: ' + term if term else 'Search cleared'}")
+        self.status_bar.showMessage(
+            f"{'Searching for: ' + term if term else 'Search cleared'}")
 
     def _update_page_metadata(self, page_number: int):
-        meta: Optional[PageMetadata] = self.pdf_processor.get_page_metadata(page_number)
+        meta: Optional[PageMetadata] = self.pdf_processor.get_page_metadata(
+            page_number)
         if meta:
             annotations = meta.keywords_found + meta.urls_found
-            self.keyword_panel.update_page_metadata(page_number, annotations, meta.content)
+            self.keyword_panel.update_page_metadata(
+                page_number, annotations, meta.content)
         else:
             self.keyword_panel.clear_metadata()
 
@@ -257,6 +332,14 @@ class MainWindow(QMainWindow):
             </ul>
             """
         )
+
+    def _on_debug_step(self, step_name: str, params: Dict[str, Any]) -> None:
+        """Handle debug toolbar step request."""
+        try:
+            self.debug_toolbar.set_status(f"Running {step_name}...")
+            self.pdf_processor.execute_step(step_name, **params)
+        except Exception:
+            pass
 
     def closeEvent(self, event):
         if self.current_render_thread and self.current_render_thread.isRunning():

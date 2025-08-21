@@ -6,61 +6,40 @@ Handles PDF loading, rendering, and keyword highlighting.
 import fitz  # PyMuPDF
 from PIL import Image, ImageDraw, ImageFont
 from PyQt6.QtGui import QImage
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, QMutex, QMutexLocker
 import io
-import json
 import logging
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 
-from core.keyword_manager import KeywordManager, Keyword, URLValidation
+from core.annotation_system import AnnotationManager, AnnotationType, Annotation
 from core.config import Config
 
 @dataclass
 class PageMetadata:
-    """Metadata for a PDF page."""
+    """Metadata for a single PDF page."""
     page_number: int
     content: str
     bounding_boxes: List[Dict]
-    keywords_found: List[Keyword]
-    urls_found: List[URLValidation]
+    keywords_found: List[Annotation]
+    urls_found: List[Annotation]
 
 class PDFProcessor(QObject):
     """Handles PDF processing, rendering, and keyword highlighting."""
     
     # Signals
-    page_rendered = pyqtSignal(int, QImage)  # page_number, image
+    page_rendered = pyqtSignal(int, QImage)      # page_number, image
     processing_finished = pyqtSignal()
-    error_occurred = pyqtSignal(str)  # error_message
+    error_occurred = pyqtSignal(str)             # error_message
     
-    def __init__(self, keyword_manager: KeywordManager):
+    def __init__(self, annotation_manager: AnnotationManager):
         """
-        Initialize the PDF processor.
-        
-        Args:
-            keyword_manager: KeywordManager instance for keyword detection.
+        Initialize the PDF processor with a shared AnnotationManager.
         """
         super().__init__()
-        self.keyword_manager = keyword_manager
-
-        # Initialize new annotation framework
-        from core.annotation_system import AnnotationManager, AnnotationType
-        from core.keyword_provider import KeywordProvider
-        from core.url_provider import URLProvider
-        from core.annotation_renderers import KeywordRenderer, URLRenderer
-
-        self.annotation_manager = AnnotationManager()
-        self.keyword_provider = KeywordProvider()
-        self.url_provider = URLProvider()
-        # Register providers and renderers
-        self.annotation_manager.register_provider(AnnotationType.KEYWORD, self.keyword_provider)
-        self.annotation_manager.register_provider(AnnotationType.URL_VALIDATION, self.url_provider)
-        self.annotation_manager.register_renderer(AnnotationType.KEYWORD, KeywordRenderer())
-        self.annotation_manager.register_renderer(AnnotationType.URL_VALIDATION, URLRenderer())
-        # Load data in parallel
-        self.keyword_provider.load_data()
-        self.url_provider.load_data()
-
+        self.annotation_manager = annotation_manager
+        self._document_mutex = QMutex()
+        
         self.document: Optional[fitz.Document] = None
         self.current_file_path: str = ""
         self.page_metadata: Dict[int, PageMetadata] = {}
@@ -68,217 +47,91 @@ class PDFProcessor(QObject):
         
     def load_pdf(self, file_path: str) -> bool:
         """
-        Load a PDF file.
-        
-        Args:
-            file_path: Path to the PDF file.
-            
-        Returns:
-            True if successful, False otherwise.
+        Open the PDF document and reset state.
+        Metadata is loaded on demand.
         """
         try:
             if self.document:
                 self.document.close()
-                
             self.document = fitz.open(file_path)
             self.current_file_path = file_path
             self.page_metadata.clear()
-            
-            # Extract text and metadata for all pages
-            self._extract_page_metadata()
-            
             return True
-            
         except Exception:
             logging.exception("Error loading PDF")
             return False
-    
-    def _extract_page_metadata(self):
-        """Extract text content and metadata from all pages."""
-        if not self.document:
+        
+    def _ensure_page_metadata(self, page_num: int) -> None:
+        """Extract metadata for a single page if not already cached."""
+        if page_num in self.page_metadata or not self.document:
             return
-            
-        for page_num in range(len(self.document)):
-            try:
-                page = self.document.load_page(page_num)
-                
-                # Extract text content
-                text_content = page.get_text()
-                
-                # Get text blocks with bounding boxes
-                blocks = page.get_text("dict")
-                bounding_boxes = []
-                
-                for block in blocks.get("blocks", []):
-                    if "lines" in block:
-                        for line in block["lines"]:
-                            for span in line.get("spans", []):
-                                bbox = {
-                                    "x0": span["bbox"][0],
-                                    "y0": span["bbox"][1], 
-                                    "x1": span["bbox"][2],
-                                    "y1": span["bbox"][3],
-                                    "text": span["text"]
-                                }
-                                bounding_boxes.append(bbox)
-                
-                # Find all annotations in the text
-                from core.annotation_system import AnnotationType
-                annotations = self.annotation_manager.find_all_annotations_in_text(text_content)
-                keywords_found = [a for a in annotations if a.annotation_type == AnnotationType.KEYWORD]
-                urls_found = [a for a in annotations if a.annotation_type == AnnotationType.URL_VALIDATION]
-                
-                # Store metadata
-                self.page_metadata[page_num] = PageMetadata(
-                    page_number=page_num,
-                    content=text_content,
-                    bounding_boxes=bounding_boxes,
-                    keywords_found=keywords_found,
-                    urls_found=urls_found
-                )
-                
-            except Exception:
-                logging.exception(f"Error processing page {page_num}")
-    
+        try:
+            page = self.document.load_page(page_num)
+            text_content = page.get_text()
+            blocks = page.get_text("dict").get("blocks", [])
+            boxes = []
+            for block in blocks:
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        x0, y0, x1, y1 = span["bbox"]
+                        boxes.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1, "text": span["text"]})
+            anns = self.annotation_manager.find_all_annotations_in_text(text_content)
+            kws = [a for a in anns if a.annotation_type == AnnotationType.KEYWORD]
+            urls = [a for a in anns if a.annotation_type == AnnotationType.URL_VALIDATION]
+            self.page_metadata[page_num] = PageMetadata(page_num, text_content, boxes, kws, urls)
+        except Exception:
+            logging.exception(f"Error extracting metadata for page {page_num}")
+
     def render_page(self, page_number: int, zoom_level: float = 1.0) -> Optional[QImage]:
         """
-        Render a PDF page with keyword highlighting.
-
-        Args:
-            page_number: Page number to render (0-based).
-            zoom_level: Zoom level for rendering.
-
-        Returns:
-            QImage of the rendered page, or None if error.
+        Render a PDF page with highlighting.
+        Uses a mutex to protect document access.
         """
         if not self.document or page_number >= len(self.document):
             return None
+        with QMutexLocker(self._document_mutex):
+            try:
+                self._ensure_page_metadata(page_number)
+                page = self.document.load_page(page_number)
+                dpi = int(self.current_dpi * zoom_level)
+                pix = page.get_pixmap(dpi=dpi)
+                img_data = pix.tobytes("png")
+                pil_image = Image.open(io.BytesIO(img_data))
+                # apply highlighting
+                image = self._apply_highlighting(pil_image, page_number, zoom_level)
+                return self._pil_to_qimage(image)
+            except Exception:
+                logging.exception(f"Error rendering page {page_number}")
+                return None
 
-        try:
-            page = self.document.load_page(page_number)
-
-            # Calculate DPI based on zoom level
-            dpi = int(self.current_dpi * zoom_level)
-
-            # Render page to pixmap
-            pix = page.get_pixmap(dpi=dpi)
-
-            # Convert to PIL Image for highlighting
-            img_data = pix.tobytes("png")
-            pil_image = Image.open(io.BytesIO(img_data))
-
-            # Apply highlighting (URLs + keywords)
-            highlighted_image = self._apply_highlighting(
-                pil_image, page_number, zoom_level
-            )
-
-            # Convert back to QImage
-            qimage = self._pil_to_qimage(highlighted_image)
-
-            return qimage
-
-        except Exception:
-            logging.exception(f"Error rendering page {page_number}")
-            return None
-    
-    def _apply_dual_highlighting(self, image: Image.Image, page_number: int, zoom_level: float) -> Image.Image:
-        """
-        Apply both URL and keyword highlighting to a PIL image.
-        
-        Args:
-            image: PIL Image to highlight.
-            page_number: Page number being processed.
-            zoom_level: Current zoom level.
-            
-        Returns:
-            PIL Image with dual-layer highlighting applied.
-        """
-        if page_number not in self.page_metadata:
-            return image
-            
-        draw = ImageDraw.Draw(image)
-        metadata = self.page_metadata[page_number]
-        
-        # Use default font
-        try:
-            font = ImageFont.load_default()
-        except Exception as e:
-            logging.exception(e)
-            font = None
-        
-        # Scale factor for bounding boxes based on zoom
-        scale_factor = zoom_level * (self.current_dpi / 72.0)  # PDF points to pixels
-        
-        # Process each text block for annotations using the annotation framework
-        for bbox in metadata.bounding_boxes:
-            bounds = {
-                'x0': int(bbox["x0"] * scale_factor),
-                'y0': int(bbox["y0"] * scale_factor),
-                'x1': int(bbox["x1"] * scale_factor),
-                'y1': int(bbox["y1"] * scale_factor)
-            }
-            anns = self.annotation_manager.find_all_annotations_in_text(bbox["text"])
-            self.annotation_manager.render_annotations(anns, draw, bounds)
-        return image
-    
     def _apply_highlighting(self, image: Image.Image, page_number: int, zoom_level: float) -> Image.Image:
-        """Alias for _apply_dual_highlighting to match documentation."""
-        return self._apply_dual_highlighting(image, page_number, zoom_level)
+        """Apply keyword and URL highlighting to a PIL Image."""
+        meta = self.page_metadata.get(page_number)
+        if not meta:
+            return image
+        draw = ImageDraw.Draw(image)
+        scale = zoom_level * (self.current_dpi / 72.0)
+        for bbox in meta.bounding_boxes:
+            b = {k: int(v * scale) for k, v in bbox.items() if k.startswith("x") or k.startswith("y")}
+            annotations = self.annotation_manager.find_all_annotations_in_text(bbox["text"])
+            self.annotation_manager.render_annotations(annotations, draw, b)
+        return image
 
     def _pil_to_qimage(self, pil_image: Image.Image) -> QImage:
-        """
-        Convert PIL Image to QImage.
-        
-        Args:
-            pil_image: PIL Image to convert.
-            
-        Returns:
-            QImage object.
-        """
-        # Convert to RGB if necessary
-        if pil_image.mode != 'RGB':
-            pil_image = pil_image.convert('RGB')
-        
-        # Get image data
-        width, height = pil_image.size
-        rgb_data = pil_image.tobytes('raw', 'RGB')
-        
-        # Create QImage
-        qimage = QImage(rgb_data, width, height, QImage.Format.Format_RGB888)
-        return qimage
-    
+        """Convert a PIL Image to QImage."""
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
+        w, h = pil_image.size
+        data = pil_image.tobytes("raw", "RGB")
+        return QImage(data, w, h, QImage.Format.Format_RGB888)
+
     def get_page_count(self) -> int:
-        """Get the total number of pages in the loaded PDF."""
         return len(self.document) if self.document else 0
-    
+
     def get_page_metadata(self, page_number: int) -> Optional[PageMetadata]:
-        """Get metadata for a specific page."""
         return self.page_metadata.get(page_number)
-    
-    def get_document_info(self) -> Dict:
-        """Get document metadata information."""
-        if not self.document:
-            return {}
-            
-        metadata = self.document.metadata
-        return {
-            "title": metadata.get("title", ""),
-            "author": metadata.get("author", ""),
-            "subject": metadata.get("subject", ""),
-            "creator": metadata.get("creator", ""),
-            "producer": metadata.get("producer", ""),
-            "creation_date": metadata.get("creationDate", ""),
-            "modification_date": metadata.get("modDate", ""),
-            "page_count": len(self.document),
-            "file_path": self.current_file_path
-        }
-    
-    def set_dpi(self, dpi: int):
-        """Set the DPI for PDF rendering."""
-        self.current_dpi = max(72, min(600, dpi))  # Clamp between 72 and 600
-    
+
     def close_document(self):
-        """Close the current PDF document."""
         if self.document:
             self.document.close()
             self.document = None

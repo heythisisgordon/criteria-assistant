@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Dict, Set, Any
+from PyQt6.QtCore import QMutex, QMutexLocker
+import hashlib
 
 class AnnotationType(Enum):
     KEYWORD = "keyword"
@@ -72,6 +74,11 @@ class AnnotationManager:
         self.providers: Dict[AnnotationType, AnnotationProvider] = {}
         self.renderers: Dict[AnnotationType, AnnotationRenderer] = {}
         self._annotation_cache: Dict[str, List[Annotation]] = {}
+        self._cache_mutex = QMutex()
+
+    def _get_cache_key(self, text: str) -> str:
+        """Generate a fixed-size cache key from text."""
+        return hashlib.md5(text.encode()).hexdigest()
 
     def register_provider(self, annotation_type: AnnotationType, provider: AnnotationProvider):
         """Register an annotation provider."""
@@ -84,18 +91,20 @@ class AnnotationManager:
 
     def find_all_annotations_in_text(self, text: str) -> List[Annotation]:
         """Find all annotations from all providers."""
-        if text in self._annotation_cache:
-            return self._annotation_cache[text]
+        key = self._get_cache_key(text)
+        with QMutexLocker(self._cache_mutex):
+            if key in self._annotation_cache:
+                return self._annotation_cache[key]
 
-        all_annotations: List[Annotation] = []
-        for provider in self.providers.values():
-            anns = provider.find_annotations_in_text(text)
-            all_annotations.extend(anns)
+            all_annotations: List[Annotation] = []
+            for provider in self.providers.values():
+                anns = provider.find_annotations_in_text(text)
+                all_annotations.extend(anns)
 
-        # Sort by render priority
-        all_annotations.sort(key=lambda a: self.renderers[a.annotation_type].get_render_priority())
-        self._annotation_cache[text] = all_annotations
-        return all_annotations
+            # Sort by render priority
+            all_annotations.sort(key=lambda a: self.renderers[a.annotation_type].get_render_priority())
+            self._annotation_cache[key] = all_annotations
+            return all_annotations
 
     def render_annotations(self, annotations: List[Annotation], draw_context: Any, bounds: Dict[str, int]):
         """Render all annotations in priority order."""
