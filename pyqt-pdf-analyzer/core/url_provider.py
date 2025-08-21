@@ -1,8 +1,11 @@
+import logging
 import pandas as pd
 import re
 from typing import List, Set, Dict
 from core.annotation_system import AnnotationProvider, Annotation, AnnotationType
 from core.config import Config
+
+logger = logging.getLogger(__name__)
 
 class URLProvider(AnnotationProvider):
     """Provides URL validation annotations."""
@@ -32,8 +35,8 @@ class URLProvider(AnnotationProvider):
             self._build_lookup()
             self.enabled_categories = set(self.validations_df['status'].unique())
             return True
-        except Exception as e:
-            print(f"Error loading URL validations: {e}")
+        except Exception:
+            logger.exception("Error loading URL validations")
             return False
     
     def _build_lookup(self):
