@@ -102,6 +102,15 @@ class AnnotationManager:
         with QMutexLocker(self._cache_mutex):
             return self.find_annotations_cached(key, text)
 
+    def find_annotations_batch(self, texts: List[str]) -> List[List[Annotation]]:
+        """Find annotations for a batch of texts with a single lock acquisition."""
+        keys = [self._get_cache_key(t) for t in texts]
+        logging.debug(
+            "AnnotationManager.find_annotations_batch: batch_size=%d", len(texts)
+        )
+        with QMutexLocker(self._cache_mutex):
+            return [self.find_annotations_cached(k, t) for k, t in zip(keys, texts)]
+
     def _find_annotations_impl(self, key: str, text: str) -> List[Annotation]:
         """Implementation for computing annotations for given text."""
         all_annotations: List[Annotation] = []

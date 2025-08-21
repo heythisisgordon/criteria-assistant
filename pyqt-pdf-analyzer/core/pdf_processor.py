@@ -10,19 +10,10 @@ from PyQt6.QtCore import QObject, pyqtSignal, QMutex, QMutexLocker
 import io
 import logging
 from typing import List, Dict, Optional
-from dataclasses import dataclass
-
 from core.annotation_system import AnnotationManager, AnnotationType, Annotation
 from core.config import Config
-
-@dataclass
-class PageMetadata:
-    """Metadata for a single PDF page."""
-    page_number: int
-    content: str
-    bounding_boxes: List[Dict]
-    keywords_found: List[Annotation]
-    urls_found: List[Annotation]
+from core.metadata_builder import PageMetadataBuilder
+from core.page_metadata import PageMetadata
 
 class PDFProcessor(QObject):
     """Handles PDF processing, rendering, and keyword highlighting."""
@@ -39,11 +30,12 @@ class PDFProcessor(QObject):
         super().__init__()
         self.annotation_manager = annotation_manager
         self._document_mutex = QMutex()
-        
+
         self.document: Optional[fitz.Document] = None
         self.current_file_path: str = ""
         self.page_metadata: Dict[int, PageMetadata] = {}
         self.current_dpi = Config.DEFAULT_DPI
+        self._metadata_builder = PageMetadataBuilder(annotation_manager)
         
     def load_pdf(self, file_path: str) -> bool:
         """
@@ -71,21 +63,14 @@ class PDFProcessor(QObject):
         if page_num in self.page_metadata or not self.document:
             return
         try:
-            logging.debug(f"PDFProcessor._ensure_page_metadata: extracting metadata for page {page_num}")
-            page = self.document.load_page(page_num)
-            text_content = page.get_text()
-            blocks = page.get_text("dict").get("blocks", [])
-            boxes = []
-            for block in blocks:
-                for line in block.get("lines", []):
-                    for span in line.get("spans", []):
-                        x0, y0, x1, y1 = span["bbox"]
-                        boxes.append({"x0": x0, "y0": y0, "x1": x1, "y1": y1, "text": span["text"]})
-            anns = self.annotation_manager.find_all_annotations_in_text(text_content)
-            kws = [a for a in anns if a.annotation_type == AnnotationType.KEYWORD]
-            urls = [a for a in anns if a.annotation_type == AnnotationType.URL_VALIDATION]
-            self.page_metadata[page_num] = PageMetadata(page_num, text_content, boxes, kws, urls)
-            logging.debug(f"PDFProcessor._ensure_page_metadata: metadata cached for page {page_num}, text length={len(text_content)}")
+            logging.debug(
+                f"PDFProcessor._ensure_page_metadata: extracting metadata for page {page_num}"
+            )
+            metadata = self._metadata_builder.build(self.document, page_num)
+            self.page_metadata[page_num] = metadata
+            logging.debug(
+                f"PDFProcessor._ensure_page_metadata: metadata cached for page {page_num}, text length={len(metadata.content)}"
+            )
         except Exception:
             logging.exception(f"PDFProcessor._ensure_page_metadata: Error extracting metadata for page {page_num}")
 
@@ -124,9 +109,13 @@ class PDFProcessor(QObject):
         draw = ImageDraw.Draw(image)
         scale = zoom_level * (self.current_dpi / 72.0)
         for bbox in meta.bounding_boxes:
-            b = {k: int(v * scale) for k, v in bbox.items() if k.startswith("x") or k.startswith("y")}
-            annotations = self.annotation_manager.find_all_annotations_in_text(bbox["text"])
-            self.annotation_manager.render_annotations(annotations, draw, b)
+            b = {
+                k: int(v * scale)
+                for k, v in bbox.items()
+                if k.startswith("x") or k.startswith("y")
+            }
+            anns = bbox.get("annotations", [])
+            self.annotation_manager.render_annotations(anns, draw, b)
         return image
 
     def _pil_to_qimage(self, pil_image: Image.Image) -> QImage:

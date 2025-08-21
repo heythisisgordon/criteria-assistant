@@ -18,7 +18,8 @@ from core.config import Config
 from core.keyword_provider import KeywordProvider
 from core.url_provider import URLProvider
 from core.annotation_system import AnnotationManager, AnnotationType
-from core.pdf_processor import PDFProcessor, PageMetadata
+from core.pdf_processor import PDFProcessor
+from core.page_metadata import PageMetadata
 from core.debug_processor import DebugPDFProcessor
 from ui.debug_toolbar import DebugToolbar, DebugLogWidget
 from ui.pdf_viewer import PDFViewerWidget
