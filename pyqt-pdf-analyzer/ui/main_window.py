@@ -35,9 +35,13 @@ class PDFRenderThread(QThread):
 
     def run(self):
         try:
-            image = self.pdf_processor.render_page(self.page_number, self.zoom_level)
-            if image:
-                self.page_rendered.emit(self.page_number, image)
+            if self.isInterruptionRequested():
+                return
+            pixmap = self.pdf_processor.render_page(self.page_number, self.zoom_level)
+            if self.isInterruptionRequested():
+                return
+            if pixmap:
+                self.page_rendered.emit(self.page_number, pixmap)
             else:
                 self.error_occurred.emit(f"Failed to render page {self.page_number + 1}")
         except Exception as e:
@@ -194,7 +198,7 @@ class MainWindow(QMainWindow):
         page = self.pdf_viewer.get_current_page()
         zoom = self.pdf_viewer.get_zoom_level()
         if self.current_render_thread and self.current_render_thread.isRunning():
-            self.current_render_thread.terminate()
+            self.current_render_thread.requestInterruption()
             self.current_render_thread.wait()
         self.current_render_thread = PDFRenderThread(self.pdf_processor, page, zoom)
         self.current_render_thread.page_rendered.connect(self.pdf_viewer.set_pixmap)
