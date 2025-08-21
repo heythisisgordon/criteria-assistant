@@ -6,9 +6,11 @@ Handles loading, filtering, and categorizing keywords and URL validations from C
 import logging
 import pandas as pd
 import re
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Callable, Any
 from dataclasses import dataclass
+
 from core.config import Config
+from core.url_utils import COMPILED_URL_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ class KeywordManager:
         self._url_lookup: Dict[str, URLValidation] = {}
         
         # URL detection patterns
+
         self.url_patterns = [
             r'https?://[^\s<>"{}|\\^`\[\]]+',  # Standard HTTP/HTTPS
             r'www\.[^\s<>"{}|\\^`\[\]]+',      # www. domains
@@ -64,6 +67,22 @@ class KeywordManager:
             r'mailto:[^\s<>"{}|\\^`\[\]]+'     # Email addresses
         ]
         self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.url_patterns]
+
+    def _load_records(
+        self,
+        csv_path: str,
+        required_cols: List[str],
+        factory: Callable[[pd.Series], Any],
+    ) -> Optional[List[Any]]:
+        """Generic CSV loader validating columns and building objects."""
+        try:
+            df = pd.read_csv(csv_path)
+            if not all(col in df.columns for col in required_cols):
+                raise ValueError(f"CSV must contain columns: {required_cols}")
+            return [factory(row) for _, row in df.iterrows()]
+        except Exception:
+            logger.exception("Error loading records from %s", csv_path)
+            return None
         
     def load_keywords(self, csv_path: str = None) -> bool:
         """
@@ -77,40 +96,29 @@ class KeywordManager:
         """
         if csv_path is None:
             csv_path = Config.get_keywords_path()
-            
-        try:
-            df = pd.read_csv(csv_path)
-            
-            # Validate required columns
-            required_cols = ['keyword', 'category', 'color']
-            if not all(col in df.columns for col in required_cols):
-                raise ValueError(f"CSV must contain columns: {required_cols}")
-            
-            # Clear existing data
-            self.keywords.clear()
-            self.categories.clear()
-            self._keyword_map.clear()
-            
-            # Load keywords
-            for _, row in df.iterrows():
-                keyword = Keyword(
-                    text=str(row['keyword']),
-                    category=str(row['category']),
-                    color=str(row['color'])
-                )
-                
-                self.keywords.append(keyword)
-                self.categories.add(keyword.category)
-                self._keyword_map[keyword.text] = keyword
-            
-            # Enable all categories by default
-            self.enabled_categories = self.categories.copy()
-            
-            return True
-            
-        except Exception:
-            logger.exception("Error loading keywords")
+
+        records = self._load_records(
+            csv_path,
+            ['keyword', 'category', 'color'],
+            lambda row: Keyword(
+                text=str(row['keyword']),
+                category=str(row['category']),
+                color=str(row['color']),
+            ),
+        )
+
+        if records is None:
             return False
+
+        # Clear existing data
+        self.keywords = records
+        self.categories = {kw.category for kw in self.keywords}
+        self._keyword_map = {kw.text: kw for kw in self.keywords}
+
+        # Enable all categories by default
+        self.enabled_categories = self.categories.copy()
+
+        return True
     
     def get_categories(self) -> List[str]:
         """Get all available keyword categories."""
@@ -201,45 +209,34 @@ class KeywordManager:
         """
         if csv_path is None:
             csv_path = Config.get_url_validation_path()
-            
-        try:
-            df = pd.read_csv(csv_path)
-            
-            # Validate required columns
-            required_cols = ['url', 'status', 'response_code', 'final_url', 'is_wbdg', 'check_certainty']
-            if not all(col in df.columns for col in required_cols):
-                raise ValueError(f"CSV must contain columns: {required_cols}")
-            
-            # Clear existing data
-            self.url_validations.clear()
-            self.url_statuses.clear()
-            self._url_lookup.clear()
-            
-            # Load URL validations
-            for _, row in df.iterrows():
-                validation = URLValidation(
-                    url=str(row['url']),
-                    status=str(row['status']),
-                    response_code=int(row['response_code']) if pd.notna(row['response_code']) else None,
-                    final_url=str(row['final_url']),
-                    error_message=str(row['error_message']) if pd.notna(row['error_message']) else None,
-                    is_wbdg=bool(row['is_wbdg']),
-                    check_certainty=str(row['check_certainty']),
-                    color=""  # Will be set in __post_init__
-                )
-                
-                self.url_validations.append(validation)
-                self.url_statuses.add(validation.status)
-                self._url_lookup[validation.url] = validation
-            
-            # Enable all statuses by default
-            self.enabled_url_statuses = self.url_statuses.copy()
-            
-            return True
-            
-        except Exception:
-            logger.exception("Error loading URL validations")
+
+        records = self._load_records(
+            csv_path,
+            ['url', 'status', 'response_code', 'final_url', 'is_wbdg', 'check_certainty'],
+            lambda row: URLValidation(
+                url=str(row['url']),
+                status=str(row['status']),
+                response_code=int(row['response_code']) if pd.notna(row['response_code']) else None,
+                final_url=str(row['final_url']),
+                error_message=str(row['error_message']) if pd.notna(row['error_message']) else None,
+                is_wbdg=bool(row['is_wbdg']),
+                check_certainty=str(row['check_certainty']),
+                color="",  # Will be set in __post_init__
+            ),
+        )
+
+        if records is None:
             return False
+
+        # Clear existing data
+        self.url_validations = records
+        self.url_statuses = {v.status for v in self.url_validations}
+        self._url_lookup = {v.url: v for v in self.url_validations}
+
+        # Enable all statuses by default
+        self.enabled_url_statuses = self.url_statuses.copy()
+
+        return True
     
     def get_url_statuses(self) -> List[str]:
         """Get all available URL status categories."""

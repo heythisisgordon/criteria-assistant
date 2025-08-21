@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from typing import Dict, List
+from typing import Callable, Dict, List, Tuple
 
 from core.annotation_system import AnnotationManager, AnnotationType, Annotation
 from core.keyword_provider import KeywordProvider
@@ -124,41 +124,54 @@ class KeywordPanel(QWidget):
         self.select_none_url_button.clicked.connect(lambda: self._set_all_urls(False))
         self.refresh_button.clicked.connect(self.refresh_requested.emit)
 
+    def _populate_checkboxes(
+        self,
+        container: Tuple[QVBoxLayout, Dict[str, QCheckBox]],
+        data: Dict[str, bool],
+        color_fn: Callable[[str], str],
+        toggle_fn: Callable[[str, bool], None],
+    ) -> None:
+        """Generic helper to populate checkbox lists."""
+        layout, checkbox_map = container
+
+        # Clear existing widgets
+        for cb in checkbox_map.values():
+            cb.setParent(None)
+        checkbox_map.clear()
+
+        # Populate with new data
+        for label, enabled in data.items():
+            cb = QCheckBox(label)
+            color = color_fn(label)
+            cb.setStyleSheet(f"QCheckBox::indicator:checked {{ background:{color}; }}")
+            cb.setChecked(enabled)
+            cb.toggled.connect(lambda checked, name=label: toggle_fn(name, checked))
+            layout.addWidget(cb)
+            checkbox_map[label] = cb
+
     def update_categories(self):
         """Populate keyword category checkboxes from the annotation framework."""
-        # Clear existing
-        for cb in self.category_checkboxes.values():
-            cb.setParent(None)
-        self.category_checkboxes.clear()
-
         categories = self.annotation_manager.get_all_categories()[AnnotationType.KEYWORD]
-        for category in categories:
-            cb = QCheckBox(category)
-            color = Config.get_color_for_category(category)
-            cb.setStyleSheet(f"QCheckBox::indicator:checked {{ background:{color}; }}")
-            enabled = category in self.keyword_provider.get_enabled_categories()
-            cb.setChecked(enabled)
-            cb.toggled.connect(lambda checked, cat=category: self.keyword_provider.set_category_enabled(cat, checked))
-            self.categories_layout.addWidget(cb)
-            self.category_checkboxes[category] = cb
+        enabled = self.keyword_provider.get_enabled_categories()
+        data = {cat: cat in enabled for cat in categories}
+        self._populate_checkboxes(
+            (self.categories_layout, self.category_checkboxes),
+            data,
+            Config.get_color_for_category,
+            lambda cat, checked: self.keyword_provider.set_category_enabled(cat, checked),
+        )
 
     def update_url_categories(self):
         """Populate URL status checkboxes from the annotation framework."""
-        # Clear existing
-        for cb in self.url_status_checkboxes.values():
-            cb.setParent(None)
-        self.url_status_checkboxes.clear()
-
         statuses = self.annotation_manager.get_all_categories()[AnnotationType.URL_VALIDATION]
-        for status in statuses:
-            cb = QCheckBox(status)
-            color = Config.get_color_for_status(status)
-            cb.setStyleSheet(f"QCheckBox::indicator:checked {{ background:{color}; }}")
-            enabled = status in self.url_provider.get_enabled_categories()
-            cb.setChecked(enabled)
-            cb.toggled.connect(lambda checked, s=status: self.url_provider.set_category_enabled(s, checked))
-            self.url_layout.addWidget(cb)
-            self.url_status_checkboxes[status] = cb
+        enabled = self.url_provider.get_enabled_categories()
+        data = {status: status in enabled for status in statuses}
+        self._populate_checkboxes(
+            (self.url_layout, self.url_status_checkboxes),
+            data,
+            Config.get_color_for_status,
+            lambda s, checked: self.url_provider.set_category_enabled(s, checked),
+        )
 
     def update_page_metadata(self, page_number: int, annotations: List[Annotation], content_preview: str = ""):
         """
