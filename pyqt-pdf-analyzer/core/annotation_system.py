@@ -4,6 +4,7 @@ from enum import Enum
 from typing import List, Dict, Set, Any
 from PyQt6.QtCore import QMutex, QMutexLocker
 import hashlib
+import logging
 from functools import lru_cache
 from core.config import Config
 
@@ -70,15 +71,15 @@ class AnnotationRenderer(ABC):
         pass
 
 class AnnotationManager:
-    """Central manager for all annotation types with bounded cache."""
+    """Central manager for all annotation types with bounded LRU cache."""
 
     def __init__(self):
         self.providers: Dict[AnnotationType, AnnotationProvider] = {}
         self.renderers: Dict[AnnotationType, AnnotationRenderer] = {}
         self._cache_mutex = QMutex()
-        # Bounded LRU cache: uses (key, text) signature
-        self._lru_cache = lru_cache(maxsize=Config.ANNOTATION_CACHE_SIZE)(
-            self._compute_annotations
+        # Bounded LRU cache: decorated method taking (key, text)
+        self.find_annotations_cached = lru_cache(maxsize=Config.ANNOTATION_CACHE_SIZE)(
+            self._find_annotations_impl
         )
 
     def _get_cache_key(self, text: str) -> str:
@@ -97,17 +98,19 @@ class AnnotationManager:
     def find_all_annotations_in_text(self, text: str) -> List[Annotation]:
         """Find all annotations using a bounded LRU cache."""
         key = self._get_cache_key(text)
+        logging.debug(f"AnnotationManager.find_all_annotations_in_text: key={key[:8]}..., text_len={len(text)}")
         with QMutexLocker(self._cache_mutex):
-            return self._lru_cache(key, text)
+            return self.find_annotations_cached(key, text)
 
-    def _compute_annotations(self, key: str, text: str) -> List[Annotation]:
-        """Internal method to compute annotations for given text."""
+    def _find_annotations_impl(self, key: str, text: str) -> List[Annotation]:
+        """Implementation for computing annotations for given text."""
         all_annotations: List[Annotation] = []
         for provider in self.providers.values():
             anns = provider.find_annotations_in_text(text)
             all_annotations.extend(anns)
         # Sort by render priority
         all_annotations.sort(key=lambda a: self.renderers[a.annotation_type].get_render_priority())
+        logging.debug(f"AnnotationManager._find_annotations_impl: computed {len(all_annotations)} annotations")
         return all_annotations
 
     def render_annotations(self, annotations: List[Annotation], draw_context: Any, bounds: Dict[str, int]):
@@ -127,5 +130,4 @@ class AnnotationManager:
 
     def _clear_cache(self):
         """Clear annotation cache when providers change."""
-        # Clear LRU cache
-        self._lru_cache.cache_clear()
+        self.find_annotations_cached.cache_clear()
