@@ -2,6 +2,7 @@
 Main window for the PyQt PDF Document Analyzer.
 """
 
+import logging
 import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -38,6 +39,7 @@ class PDFRenderThread(QThread):
             else:
                 self.error_occurred.emit(f"Failed to render page {self.page_number + 1}")
         except Exception as e:
+            logging.exception("Error rendering page")
             self.error_occurred.emit(f"Error rendering page: {str(e)}")
 
 class MainWindow(QMainWindow):
