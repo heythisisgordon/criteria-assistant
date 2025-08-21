@@ -60,46 +60,75 @@ def extract_text(el):
 def get_line_number(el):
     return el.sourceline if hasattr(el, 'sourceline') else -1
 
-def parse_children(el, depth, num_str, ufgs_id):
-    rows = []
-    for ch in el:
+def iter_children(el, depth, num_str, ufgs_id):
+    """Iteratively yield rows for ENG/MET descendants."""
+    stack = [(iter(el), depth)]
+    while stack:
+        it, cur_depth = stack[-1]
+        try:
+            ch = next(it)
+        except StopIteration:
+            stack.pop()
+            continue
         if ch.tag in ['ENG', 'MET']:
-            rows.append((depth+1, ch.tag, num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
+            yield (cur_depth + 1, ch.tag, num_str, extract_text(ch),
+                   get_line_number(ch), None, None, ufgs_id)
         elif len(ch):
-            rows += parse_children(ch, depth+1, num_str, ufgs_id)
-    return rows
+            stack.append((iter(ch), cur_depth + 1))
 
-def parse_spt(el, depth, numbering, ufgs_id, submittal=None):
-    rows = []
-    num_str = '.'.join(map(str, numbering))
-    rows.append((depth, 'SPT', num_str, extract_text(el.find('TTL')), get_line_number(el.find('TTL')), None, None, ufgs_id))
-    for ch in el:
+
+def iter_spt(el, depth, numbering, ufgs_id, submittal=None):
+    """Iteratively traverse <SPT> elements yielding rows."""
+    stack = [(el, depth, numbering, submittal, iter(el), 0, True)]
+    while stack:
+        el, depth, numbering, submittal, child_iter, spt_counter, need_yield = stack[-1]
+        if need_yield:
+            num_str = '.'.join(map(str, numbering))
+            ttl_el = el.find('TTL')
+            stack[-1] = (el, depth, numbering, submittal, child_iter, spt_counter, False)
+            yield (depth, 'SPT', num_str, extract_text(ttl_el),
+                   get_line_number(ttl_el), None, None, ufgs_id)
+            continue
+        try:
+            ch = next(child_iter)
+        except StopIteration:
+            stack.pop()
+            continue
         tag = ch.tag
+        num_str = '.'.join(map(str, numbering))
         if tag == 'SCP':
-            rows.append((depth+1, 'SCP', num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
+            yield (depth + 1, 'SCP', num_str, extract_text(ch),
+                   get_line_number(ch), None, None, ufgs_id)
         elif tag == 'NTE':
             for npr in ch.findall('./NPR'):
-                rows.append((depth+1, 'NPR', num_str, extract_text(npr), get_line_number(npr), None, None, ufgs_id))
+                yield (depth + 1, 'NPR', num_str, extract_text(npr),
+                       get_line_number(npr), None, None, ufgs_id)
         elif tag == 'TXT':
-            rows.append((depth+1, 'TXT', num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
-            rows += parse_children(ch, depth+1, num_str, ufgs_id)
+            yield (depth + 1, 'TXT', num_str, extract_text(ch),
+                   get_line_number(ch), None, None, ufgs_id)
+            for row in iter_children(ch, depth + 1, num_str, ufgs_id):
+                yield row
         elif tag == 'LST':
             sub = ch.find('SUB')
             val = extract_text(sub)
             match = re.match(r"(SD-[0-9]{2})", val)
             submittal = match.group(1) if match else None
-            rows.append((depth+1, 'LST', num_str, val, get_line_number(ch), submittal, None, ufgs_id))
+            yield (depth + 1, 'LST', num_str, val, get_line_number(ch),
+                   submittal, None, ufgs_id)
+            stack[-1] = (el, depth, numbering, submittal, child_iter, spt_counter, False)
         elif tag == 'ITM':
             subs = ch.findall('.//SUB')
-            tag = 'SUB' if submittal else 'ITM'
+            row_tag = 'SUB' if submittal else 'ITM'
             name = extract_text(subs[0]) if subs else extract_text(ch)
             clss = extract_text(subs[1]) if len(subs) > 1 else ''
             itm_depth = depth + 2 if submittal else depth + 1
-            rows.append((itm_depth, tag, num_str, name, get_line_number(ch), submittal, clss, ufgs_id))
+            yield (itm_depth, row_tag, num_str, name, get_line_number(ch),
+                   submittal, clss, ufgs_id)
         elif tag == 'SPT':
-            new_num = numbering + [len(el.findall('./SPT')) + 1]
-            rows += parse_spt(ch, depth+1, new_num, ufgs_id, submittal)
-    return rows
+            spt_counter += 1
+            stack[-1] = (el, depth, numbering, submittal, child_iter, spt_counter, False)
+            new_num = numbering + [spt_counter]
+            stack.append((ch, depth + 1, new_num, submittal, iter(ch), 0, True))
 
 def parse_sec_file(path, ufgs_id):
     with open(path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -113,48 +142,35 @@ def parse_sec_file(path, ufgs_id):
         ttl = extract_text(prt.find('TTL'))
         rows.append((1, 'PRT', str(p_idx), ttl, get_line_number(prt.find('TTL')), None, None, ufgs_id))
         for s_idx, spt in enumerate(prt.findall('./SPT'), 1):
-            rows += parse_spt(spt, 2, [p_idx, s_idx], ufgs_id)
+            for row in iter_spt(spt, 2, [p_idx, s_idx], ufgs_id):
+                rows.append(row)
     return rows
 
-# --- Keyword Warning ---
-def keyword_warning(val, df_keywords):
-    alerts = []
-    for _, row in df_keywords.iterrows():
-        if re.search(rf"\b{re.escape(row['Keyword'])}\b", str(val), re.IGNORECASE):
-            replacement = f" — use '{row['Recommended Replacement']}'" if row['Recommended Replacement'] else ""
-            alerts.append(f"Avoid '{row['Keyword']}'{replacement} [{row['ID']}]")
-    return "; ".join(alerts) if alerts else ""
+# --- Parsing Pipeline Helpers ---
 
-# --- Main Parser ---
-def parse_all_sec_files(zip_url, zip_path, extract_dir, discipline_csv_path, keyword_csv_path,
-                        output_excel_path=None, include_keyword_warnings=True,
-                        debug_mode=False, force_download=False):
-
-    global DEBUG_MODE
-    DEBUG_MODE = debug_mode
-
-    # Step 1: Download + Extract
+def prepare_sec_files(zip_url, zip_path, extract_dir, force_download=False):
+    """Download and extract the SEC archive."""
     download_zip(zip_url, zip_path, force=force_download)
     extract_zip(zip_path, extract_dir)
 
-    # Step 2: Load discipline + keyword CSVs
-    df_discipline = load_discipline_map(discipline_csv_path)
-    df_keywords = load_keyword_list(keyword_csv_path) if include_keyword_warnings else pd.DataFrame()
 
-    # Step 3: Parse all SEC files
+def parse_sec_directory(extract_dir, df_discipline):
+    """Parse all SEC files in the extracted directory."""
     combined, missing = [], []
     ufgs_sections = {f"{row['UFGS']}.SEC": row['UFGS'] for _, row in df_discipline.iterrows()}
-
     for file, ufgs in ufgs_sections.items():
         path = os.path.join(extract_dir, file)
         if os.path.exists(path):
-            combined += parse_sec_file(path, ufgs)
+            combined.extend(parse_sec_file(path, ufgs))
         else:
             debug_print(f"Missing file: {file}")
             missing.append(file)
+    return combined, missing
 
-    # Step 4: Build DataFrame
-    df = pd.DataFrame(combined, columns=[
+
+def build_dataframe(rows, include_keyword_warnings, df_keywords):
+    """Construct the parsed DataFrame."""
+    df = pd.DataFrame(rows, columns=[
         'NEST_DEPTH', 'SEC TAG', 'Number', 'Value', 'LINE_NUM',
         'SUBMITTAL_CODE', 'Submittal Classification Code', 'UFGS'
     ])
@@ -175,22 +191,54 @@ def parse_all_sec_files(zip_url, zip_path, extract_dir, discipline_csv_path, key
     if include_keyword_warnings:
         df["Keyword Warning"] = df["Value"].apply(lambda val: keyword_warning(val, df_keywords))
 
-    # Step 5: Export Excel
-    if output_excel_path:
-        with pd.ExcelWriter(output_excel_path, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name="ParsedData")
-            df_discipline.to_excel(writer, index=False, sheet_name="DisciplineMap")
-            if include_keyword_warnings:
-                df_keywords.to_excel(writer, index=False, sheet_name="KeywordGuidance")
+    return df
 
-            for sheet in writer.book.worksheets:
-                ws = sheet
-                max_col = chr(64 + len(ws[1]))
-                tbl_range = f"A1:{max_col}{len(ws['A'])}"
-                tbl = Table(displayName=f"{ws.title}Table", ref=tbl_range)
-                style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True, showColumnStripes=True)
-                tbl.tableStyleInfo = style
-                ws.add_table(tbl)
-                ws.freeze_panes = "A2"
+
+def export_dataframe(df, df_discipline, df_keywords, output_excel_path, include_keyword_warnings):
+    """Export results to Excel if a path is provided."""
+    if not output_excel_path:
+        return
+    with pd.ExcelWriter(output_excel_path, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name="ParsedData")
+        df_discipline.to_excel(writer, index=False, sheet_name="DisciplineMap")
+        if include_keyword_warnings:
+            df_keywords.to_excel(writer, index=False, sheet_name="KeywordGuidance")
+
+        for sheet in writer.book.worksheets:
+            ws = sheet
+            max_col = chr(64 + len(ws[1]))
+            tbl_range = f"A1:{max_col}{len(ws['A'])}"
+            tbl = Table(displayName=f"{ws.title}Table", ref=tbl_range)
+            style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True, showColumnStripes=True)
+            tbl.tableStyleInfo = style
+            ws.add_table(tbl)
+            ws.freeze_panes = "A2"
+
+# --- Keyword Warning ---
+def keyword_warning(val, df_keywords):
+    alerts = []
+    for _, row in df_keywords.iterrows():
+        if re.search(rf"\b{re.escape(row['Keyword'])}\b", str(val), re.IGNORECASE):
+            replacement = f" — use '{row['Recommended Replacement']}'" if row['Recommended Replacement'] else ""
+            alerts.append(f"Avoid '{row['Keyword']}'{replacement} [{row['ID']}]")
+    return "; ".join(alerts) if alerts else ""
+
+def parse_all_sec_files(zip_url, zip_path, extract_dir, discipline_csv_path, keyword_csv_path,
+                        output_excel_path=None, include_keyword_warnings=True,
+                        debug_mode=False, force_download=False):
+    """Controller: orchestrate SEC file parsing workflow."""
+
+    global DEBUG_MODE
+    DEBUG_MODE = debug_mode
+
+    prepare_sec_files(zip_url, zip_path, extract_dir, force_download)
+
+    df_discipline = load_discipline_map(discipline_csv_path)
+    df_keywords = (load_keyword_list(keyword_csv_path)
+                   if include_keyword_warnings else pd.DataFrame())
+
+    rows, missing = parse_sec_directory(extract_dir, df_discipline)
+    df = build_dataframe(rows, include_keyword_warnings, df_keywords)
+    export_dataframe(df, df_discipline, df_keywords, output_excel_path, include_keyword_warnings)
 
     return df, df_discipline, {"missing_files": missing}
