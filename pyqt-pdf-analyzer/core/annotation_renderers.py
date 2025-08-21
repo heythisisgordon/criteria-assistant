@@ -1,5 +1,6 @@
 from typing import Dict
 
+import logging
 from PIL import ImageDraw, ImageFont
 from core.annotation_system import AnnotationRenderer, Annotation, AnnotationType
 
@@ -32,9 +33,9 @@ class KeywordRenderer(AnnotationRenderer):
             label_bg = [label_x, label_y, label_x + text_width + 4, label_y + text_height + 4]
             draw_context.rounded_rectangle(label_bg, radius=8, fill=color)
             draw_context.text((label_x + 2, label_y + 2), label, fill="white", font=font)
-        except Exception:
-            # Fallback: do nothing if text rendering fails
-            pass
+        except Exception as e:
+            # Fallback: log the failure and do nothing if text rendering fails
+            logging.exception(e)
     
     def _hex_to_rgba(self, hex_color: str, alpha: int = 255) -> tuple:
         """Convert hex color to RGBA tuple."""
