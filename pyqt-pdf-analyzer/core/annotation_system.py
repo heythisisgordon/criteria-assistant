@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Set, Any
-from PyQt6.QtCore import QMutex, QMutexLocker
+from typing import List, Dict, Set, Any, Optional
+from threading import RLock
+from collections import OrderedDict
 import hashlib
 import logging
-from functools import lru_cache
 from core.config import Config
 
 class AnnotationType(Enum):
@@ -71,23 +71,30 @@ class AnnotationRenderer(ABC):
         pass
 
 class AnnotationManager:
-    """Central manager for all annotation types with bounded LRU cache."""
+    """Central manager for all annotation types with a size-bounded cache.
+
+    The cache stores recently computed annotations keyed by a hash of the
+    input text. Access to the cache is protected by a re-entrant lock. The
+    cache is cleared whenever providers are updated via :meth:`register_provider`.
+    """
 
     def __init__(self):
         self.providers: Dict[AnnotationType, AnnotationProvider] = {}
         self.renderers: Dict[AnnotationType, AnnotationRenderer] = {}
-        self._cache_mutex = QMutex()
-        # Bounded LRU cache: decorated method taking (key, text)
-        self.find_annotations_cached = lru_cache(maxsize=Config.ANNOTATION_CACHE_SIZE)(
-            self._find_annotations_impl
-        )
+        self._cache_lock = RLock()
+        self._cache: "OrderedDict[str, List[Annotation]]" = OrderedDict()
+        self._cache_size = Config.ANNOTATION_CACHE_SIZE
 
     def _get_cache_key(self, text: str) -> str:
         """Generate a fixed-size cache key from text."""
         return hashlib.md5(text.encode()).hexdigest()
 
     def register_provider(self, annotation_type: AnnotationType, provider: AnnotationProvider):
-        """Register an annotation provider and clear cache."""
+        """Register an annotation provider and clear cache.
+
+        Updating providers invalidates the cache to ensure annotations are
+        recomputed using the latest provider data.
+        """
         self.providers[annotation_type] = provider
         self._clear_cache()
 
@@ -96,14 +103,20 @@ class AnnotationManager:
         self.renderers[annotation_type] = renderer
 
     def find_all_annotations_in_text(self, text: str) -> List[Annotation]:
-        """Find all annotations using a bounded LRU cache."""
+        """Find all annotations with explicit, thread-safe caching."""
         key = self._get_cache_key(text)
-        logging.debug(f"AnnotationManager.find_all_annotations_in_text: key={key[:8]}..., text_len={len(text)}")
-        with QMutexLocker(self._cache_mutex):
-            return self.find_annotations_cached(key, text)
+        logging.debug(
+            f"AnnotationManager.find_all_annotations_in_text: key={key[:8]}..., text_len={len(text)}"
+        )
+        cached = self._get_cached_annotations(key)
+        if cached is not None:
+            return cached
+        annotations = self._compute_annotations(text)
+        self._set_cached_annotations(key, annotations)
+        return annotations
 
-    def _find_annotations_impl(self, key: str, text: str) -> List[Annotation]:
-        """Implementation for computing annotations for given text."""
+    def _compute_annotations(self, text: str) -> List[Annotation]:
+        """Compute annotations for the given text without caching."""
         all_annotations: List[Annotation] = []
         for provider in self.providers.values():
             anns = provider.find_annotations_in_text(text)
@@ -128,6 +141,23 @@ class AnnotationManager:
             for ann_type, provider in self.providers.items()
         }
 
+    def _get_cached_annotations(self, key: str) -> Optional[List[Annotation]]:
+        """Retrieve annotations from the cache if available."""
+        with self._cache_lock:
+            annotations = self._cache.get(key)
+            if annotations is not None:
+                self._cache.move_to_end(key)
+            return annotations
+
+    def _set_cached_annotations(self, key: str, annotations: List[Annotation]):
+        """Store annotations in the cache and enforce size limit."""
+        with self._cache_lock:
+            self._cache[key] = annotations
+            self._cache.move_to_end(key)
+            if len(self._cache) > self._cache_size:
+                self._cache.popitem(last=False)
+
     def _clear_cache(self):
         """Clear annotation cache when providers change."""
-        self.find_annotations_cached.cache_clear()
+        with self._cache_lock:
+            self._cache.clear()
