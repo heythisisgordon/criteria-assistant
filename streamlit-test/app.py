@@ -3,9 +3,15 @@ import streamlit as st
 import pandas as pd
 import json
 import fitz  # PyMuPDF
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import io
 import os
+import sys
+
+# Make core modules available
+sys.path.append("pyqt-pdf-analyzer")
+from core.annotation_renderers import render_keyword_annotation
+from core.annotation_system import Annotation, AnnotationType
 
 st.set_page_config(layout="wide")
 st.title("📄 UFC PDF Visualizer with Keyword Pills")
@@ -33,8 +39,6 @@ visible_pages = sorted(df["page"].unique())
 max_per_row = st.sidebar.slider("Pages per row", 2, 6, 3)
 keyword_search = st.sidebar.text_input("🔍 Filter Keywords")
 
-font = ImageFont.load_default()
-
 for i in range(0, len(visible_pages), max_per_row):
     cols = st.columns(len(visible_pages[i:i + max_per_row]))
     for j, page_num in enumerate(visible_pages[i:i + max_per_row]):
@@ -49,18 +53,17 @@ for i in range(0, len(visible_pages), max_per_row):
             if keyword_search and keyword_search.lower() not in content:
                 continue
             bbox = json.loads(row["bounding_box"])
-            x0, y0, x1, y1 = bbox["x0"], bbox["y0"], bbox["x1"], bbox["y1"]
+            bounds = {"x0": bbox["x0"], "y0": bbox["y0"], "x1": bbox["x1"], "y1": bbox["y1"]}
             for kw, meta in keyword_map.items():
                 if kw in content:
-                    color = meta["color"]
-                    label = meta["category"]
-                    text = f" {label} "
-                    w, h = draw.textsize(text, font=font)
-                    rx0, ry0 = x0, y0 - h - 6
-                    rx1, ry1 = rx0 + w + 4, ry0 + h + 4
-                    draw.rounded_rectangle([rx0, ry0, rx1, ry1], radius=8, fill=color)
-                    draw.text((rx0 + 2, ry0 + 2), text, fill="white", font=font)
-                    draw.rectangle([x0, y0, x1, y1], outline=color, width=2)
+                    annotation = Annotation(
+                        text=kw,
+                        annotation_type=AnnotationType.KEYWORD,
+                        category=meta["category"],
+                        color=meta["color"],
+                        metadata={}
+                    )
+                    render_keyword_annotation(annotation, draw, bounds)
 
         cols[j].image(img, caption=f"Page {page_num + 1}", use_column_width=True)
 
