@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (QWidget, QScrollArea, QLabel, QVBoxLayout,
                             QHBoxLayout, QPushButton, QSlider, QSpinBox,
                             QSizePolicy, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QPixmap, QPainter, QFont
+from PyQt6.QtGui import QPixmap, QPainter, QFont, QImage
 from typing import Optional
 
 from core.config import Config
@@ -119,21 +119,21 @@ class PDFViewerWidget(QScrollArea):
         self.zoom_slider.valueChanged.connect(self._on_zoom_slider_changed)
         self.fit_width_button.clicked.connect(self.fit_to_width)
     
-    def set_pixmap(self, pixmap: QPixmap, page_number: int):
+    def set_pixmap(self, image: QImage, page_number: int):
         """
-        Set the pixmap to display.
-        
+        Set the rendered page image.
+
         Args:
-            pixmap: QPixmap to display.
+            image: QImage to display.
             page_number: Current page number (0-based).
         """
-        self.current_pixmap = pixmap
+        self.current_pixmap = QPixmap.fromImage(image) if image else None
         self.current_page = page_number
-        
-        if pixmap:
+
+        if self.current_pixmap:
             # Scale pixmap according to zoom level
-            scaled_pixmap = pixmap.scaled(
-                pixmap.size() * self.zoom_level,
+            scaled_pixmap = self.current_pixmap.scaled(
+                self.current_pixmap.size() * self.zoom_level,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
