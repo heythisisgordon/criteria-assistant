@@ -7,9 +7,11 @@ from PIL import Image, ImageDraw
 import io
 import os
 import sys
+from pathlib import Path
 
 # Make core modules available
-sys.path.append("pyqt-pdf-analyzer")
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.append(str(BASE_DIR.parents[1] / "src"))
 from core.annotation_renderers import render_keyword_annotation
 from core.annotation_system import Annotation, AnnotationType
 
@@ -17,10 +19,10 @@ st.set_page_config(layout="wide")
 st.title("📄 UFC PDF Visualizer with Keyword Pills")
 
 # Add diagnostic print
-st.write("Files in directory:", os.listdir("streamlit-test/"))
+st.write("Files in directory:", os.listdir(BASE_DIR))
 
 # Then attempt to read
-keyword_df = pd.read_csv("streamlit-test/keywords.csv")
+keyword_df = pd.read_csv(BASE_DIR / "keywords.csv")
 
 keyword_map = {
     row["keyword"].lower(): {"category": row["category"], "color": row["color"]}
@@ -29,9 +31,9 @@ keyword_map = {
 category_colors = {r.category: r.color for r in keyword_df.itertuples()}
 
 # Load metadata & PDF
-df = pd.read_csv("data/deontic_metadata.csv")
-pdf_path = "data/ufc_example.pdf"
-if not os.path.exists(pdf_path):
+df = pd.read_csv(BASE_DIR / "data/deontic_metadata.csv")
+pdf_path = BASE_DIR / "data/ufc_example.pdf"
+if not pdf_path.exists():
     st.error("Place 'ufc_example.pdf' inside data/")
     st.stop()
 

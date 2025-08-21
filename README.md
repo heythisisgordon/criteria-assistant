@@ -4,20 +4,18 @@ A toolkit for building and annotating federal facility document knowledge graphs
 
 ## Code Orientation
 
-- **pyqt-pdf-analyzer/**  
-  - `main.py`: Application entry; sets up logging and starts the Qt event loop.  
-  - `core/`  
-    - `annotation_system.py`: Defines `Annotation`, `AnnotationProvider`, and `AnnotationManager`.  
-    - `keyword_provider.py`, `url_provider.py`: Load CSV data and find annotations in text.  
-    - `pdf_processor.py`: Loads and renders PDFs with layered annotations. Emits full tracebacks on error.  
-    - `config.py`: Paths, colors, and UI constants.  
-  - `ui/`  
-    - `main_window.py`: Menu, toolbar, status bar, and orchestrates PDF loading and annotation rendering threads.  
-    - `pdf_viewer.py`: Scrollable widget displaying pages, zoom controls, and page navigation.  
+- **pyqt-pdf-analyzer/**
+  - `main.py`: Application entry; sets up logging and starts the Qt event loop.
+  - `ui/`
+    - `main_window.py`: Menu, toolbar, status bar, and orchestrates PDF loading and annotation rendering threads.
+    - `pdf_viewer.py`: Scrollable widget displaying pages, zoom controls, and page navigation.
     - `keyword_panel.py`: Sidebar for toggling annotation categories and viewing metadata per page.
 
-- **streamlit-test/**  
-  Prototype Streamlit app demonstrating keyword and URL highlighting using the same core logic.
+- **src/core/**
+  Shared annotation, provider, and PDF processing logic.
+
+- **examples/streamlit/**
+  Prototype Streamlit app demonstrating keyword and URL highlighting using the shared core logic.
 
 - **data/**  
   CSV/TTL/JSON-LD sources for building the document hierarchy knowledge graph.

@@ -6,7 +6,8 @@ Main entry point for the UFC/UFGS PDF analysis application.
 
 import logging
 import sys
-import os
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, qInstallMessageHandler, QtMsgType, QMessageLogContext
 from ui.main_window import MainWindow

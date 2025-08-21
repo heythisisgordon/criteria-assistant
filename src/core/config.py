@@ -9,10 +9,10 @@ class Config:
     """Application configuration settings."""
     
     # Default paths
-    DEFAULT_KEYWORDS_PATH = "streamlit-test/keywords.csv"
-    DEFAULT_METADATA_PATH = "../streamlit-test/data/deontic_metadata.csv"
-    DEFAULT_PDF_PATH = "../streamlit-test/data/ufc_example.pdf"
-    DEFAULT_URL_VALIDATION_PATH = "streamlit-test/data/url_validation_results.csv"
+    DEFAULT_KEYWORDS_PATH = "examples/streamlit/keywords.csv"
+    DEFAULT_METADATA_PATH = "examples/streamlit/data/deontic_metadata.csv"
+    DEFAULT_PDF_PATH = "examples/streamlit/data/ufc_example.pdf"
+    DEFAULT_URL_VALIDATION_PATH = "examples/streamlit/data/url_validation_results.csv"
     
     # UI Settings
     DEFAULT_WINDOW_WIDTH = 1200

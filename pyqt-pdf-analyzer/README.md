@@ -63,23 +63,25 @@ The application supports the following default keyword categories:
 pyqt-pdf-analyzer/
 ├── main.py                 # Application entry point
 ├── requirements.txt        # Python dependencies
-├── core/                   # Core functionality
-│   ├── config.py          # Configuration settings
-│   ├── keyword_manager.py # Keyword loading and management
-│   └── pdf_processor.py   # PDF processing and highlighting
 ├── ui/                     # User interface components
 │   ├── main_window.py     # Main application window
 │   ├── pdf_viewer.py      # PDF viewer widget
 │   └── keyword_panel.py   # Keyword management panel
 └── README.md              # This file
+
+src/
+└── core/                   # Shared functionality
+    ├── config.py          # Configuration settings
+    ├── keyword_manager.py # Keyword loading and management
+    └── pdf_processor.py   # PDF processing and highlighting
 ```
 
 ## Configuration
 
-The application looks for default files in the parent directory:
-- Keywords: `../streamlit-test/keywords.csv`
-- Metadata: `../streamlit-test/data/deontic_metadata.csv`
-- Sample PDF: `../streamlit-test/data/ufc_example.pdf`
+The application looks for default files in the repository:
+- Keywords: `examples/streamlit/keywords.csv`
+- Metadata: `examples/streamlit/data/deontic_metadata.csv`
+- Sample PDF: `examples/streamlit/data/ufc_example.pdf`
 
 You can customize these paths in `core/config.py`.
 

@@ -1,11 +1,11 @@
 import sys
-import os
+from pathlib import Path
 import pytest
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QImage
 
-# Ensure project root is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
+# Ensure project root's src is on sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from ui.pdf_viewer import PDFViewerWidget
 from ui.keyword_panel import KeywordPanel
