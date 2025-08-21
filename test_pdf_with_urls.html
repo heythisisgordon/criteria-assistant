@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Document with URLs for Validation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        h1 { color: #333; }
+        .url-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .status { font-weight: bold; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .warn { color: orange; }
+        .email { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>UFC/UFGS Test Document - URL Validation Examples</h1>
+    
+    <p>This document contains various URLs that match our validation test data for demonstrating the dual-annotation system.</p>
+    
+    <div class="url-section">
+        <h2>Valid URLs (PASS Status)</h2>
+        <p>These URLs should show green annotations:</p>
+        <ul>
+            <li>Official UFC site: <span class="pass">https://www.wbdg.org/ufc</span></li>
+            <li>UFGS specifications: <span class="pass">https://www.wbdg.org/ufgs</span></li>
+            <li>Construction standards: <span class="pass">https://www.nibs.org</span></li>
+        </ul>
+    </div>
+    
+    <div class="url-section">
+        <h2>Failed URLs (FAIL Status)</h2>
+        <p>These URLs should show red annotations:</p>
+        <ul>
+            <li>Broken link: <span class="fail">https://broken-example.com/404</span></li>
+            <li>Invalid domain: <span class="fail">https://invalid-domain-xyz.com</span></li>
+            <li>Timeout URL: <span class="fail">https://timeout-example.com</span></li>
+        </ul>
+    </div>
+    
+    <div class="url-section">
+        <h2>Warning URLs (WARN_WBDG_CONTENT_ERROR Status)</h2>
+        <p>These URLs should show orange annotations:</p>
+        <ul>
+            <li>Content warning: <span class="warn">https://wbdg-content-error.com</span></li>
+            <li>Partial content: <span class="warn">https://partial-content.example.com</span></li>
+        </ul>
+    </div>
+    
+    <div class="url-section">
+        <h2>Email Addresses (EMAIL Status)</h2>
+        <p>These should show blue annotations:</p>
+        <ul>
+            <li>Contact email: <span class="email">contact@example.com</span></li>
+            <li>Support email: <span class="email">support@wbdg.org</span></li>
+        </ul>
+    </div>
+    
+    <div class="url-section">
+        <h2>Processing Errors (PROCESSING_ERROR Status)</h2>
+        <p>These URLs had processing issues:</p>
+        <ul>
+            <li>Processing error: <span class="fail">https://processing-error.com</span></li>
+        </ul>
+    </div>
+    
+    <div class="url-section">
+        <h2>Mixed Content Example</h2>
+        <p>This paragraph contains both keywords and URLs for testing dual annotations. 
+        The <strong>construction</strong> standards at https://www.wbdg.org/ufc provide 
+        <strong>specifications</strong> for building projects. Contact support@wbdg.org 
+        for more information about <strong>requirements</strong> and <strong>compliance</strong>.</p>
+    </div>
+    
+    <div class="url-section">
+        <h2>Various URL Formats</h2>
+        <p>Testing different URL patterns:</p>
+        <ul>
+            <li>HTTPS: https://secure-example.com</li>
+            <li>HTTP: http://insecure-example.com</li>
+            <li>WWW format: www.example-www.com</li>
+            <li>Domain only: example-domain.org</li>
+            <li>With path: https://example.com/path/to/resource</li>
+            <li>With query: https://example.com/search?q=test</li>
+        </ul>
+    </div>
+    
+    <p><em>This test document demonstrates the dual-annotation system where URL validation 
+    status appears as colored borders/indicators while keyword highlights appear as 
+    semi-transparent overlays with category pills.</em></p>
+</body>
+</html>

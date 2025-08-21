@@ -1,0 +1,16 @@
+url,status,response_code,final_url,error_message,is_wbdg,check_certainty
+https://www.wbdg.org/ffc/dod/ufc,PASS,200,https://www.wbdg.org/ffc/dod/ufc,,true,HIGH
+https://www.wbdg.org/ffc/dod/ufgs,PASS,200,https://www.wbdg.org/ffc/dod/ufgs,,true,HIGH
+https://broken-link-example.com,FAIL,404,https://broken-link-example.com,Not Found,false,HIGH
+https://www.wbdg.org/error-page,WARN_WBDG_CONTENT_ERROR,200,https://www.wbdg.org/error-page,Content check triggered an error page,true,HIGH
+mailto:info@example.com,EMAIL,,,Email address,false,HIGH
+invalid-url-format,INVALID,,,Invalid URL format,false,HIGH
+https://timeout-example.com,PROCESSING_ERROR,,,Connection timeout,false,MEDIUM
+www.example-domain.com,PASS,200,https://www.example-domain.com,,false,HIGH
+https://redirect-example.com,PASS,200,https://final-destination.com,,false,HIGH
+ftp://legacy-server.com,FAIL,,,Protocol not supported,false,HIGH
+https://www.astm.org/standards,PASS,200,https://www.astm.org/standards,,false,HIGH
+https://www.ieee.org/standards,PASS,200,https://www.ieee.org/standards,,false,HIGH
+https://www.nist.gov/publications,PASS,200,https://www.nist.gov/publications,,false,HIGH
+https://dead-government-site.gov,FAIL,404,https://dead-government-site.gov,Government site no longer available,false,HIGH
+https://www.wbdg.org/maintenance,WARN_WBDG_CONTENT_ERROR,503,https://www.wbdg.org/maintenance,Service temporarily unavailable,true,HIGH

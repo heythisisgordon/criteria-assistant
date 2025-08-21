@@ -12,6 +12,7 @@ class Config:
     DEFAULT_KEYWORDS_PATH = "../streamlit-test/keywords.csv"
     DEFAULT_METADATA_PATH = "../streamlit-test/data/deontic_metadata.csv"
     DEFAULT_PDF_PATH = "../streamlit-test/data/ufc_example.pdf"
+    DEFAULT_URL_VALIDATION_PATH = "../streamlit-test/data/url_validation_results.csv"
     
     # UI Settings
     DEFAULT_WINDOW_WIDTH = 1200
@@ -32,6 +33,18 @@ class Config:
         "Prohibited": "#000000",    # black
         "Hazard": "#0000FF",        # blue
         "Domain": "#008000"         # green
+    }
+    
+    # URL validation colors (matching notebook analysis)
+    URL_STATUS_COLORS = {
+        "PASS": "#00AA00",                    # Green
+        "FAIL": "#CC0000",                    # Red  
+        "WARN_WBDG_CONTENT_ERROR": "#FF8800", # Orange
+        "EMAIL": "#0066CC",                   # Blue
+        "INVALID": "#808080",                 # Gray
+        "PROCESSING_ERROR": "#404040",        # Dark Gray
+        "BATCH_MISSING_RESULT": "#666666",    # Medium Gray
+        "NOT_MAPPED": "#999999"               # Light Gray
     }
     
     # UI Colors
@@ -58,3 +71,13 @@ class Config:
     def get_color_for_category(cls, category: str) -> str:
         """Get the highlight color for a keyword category."""
         return cls.KEYWORD_COLORS.get(category, "#808080")  # Default gray
+    
+    @classmethod
+    def get_url_validation_path(cls) -> str:
+        """Get the path to the URL validation CSV file."""
+        return os.path.abspath(cls.DEFAULT_URL_VALIDATION_PATH)
+    
+    @classmethod
+    def get_color_for_status(cls, status: str) -> str:
+        """Get the highlight color for a URL status."""
+        return cls.URL_STATUS_COLORS.get(status, "#808080")  # Default gray

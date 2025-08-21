@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._setup_connections()
         self._load_default_keywords()
+        self._load_default_url_validations()
         
         # Set window properties
         self.setWindowTitle("UFC PDF Document Analyzer")
@@ -81,8 +82,12 @@ class MainWindow(QMainWindow):
         # Create splitter for resizable panels
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Create keyword panel
-        self.keyword_panel = KeywordPanel(self.keyword_manager)
+        # Create keyword panel using new annotation framework providers
+        self.keyword_panel = KeywordPanel(
+            self.pdf_processor.annotation_manager,
+            self.pdf_processor.keyword_provider,
+            self.pdf_processor.url_provider
+        )
         self.keyword_panel.setMinimumWidth(300)
         self.keyword_panel.setMaximumWidth(400)
         splitter.addWidget(self.keyword_panel)
@@ -126,6 +131,12 @@ class MainWindow(QMainWindow):
         load_keywords_action.setStatusTip("Load keywords from CSV file")
         load_keywords_action.triggered.connect(self.load_keywords)
         file_menu.addAction(load_keywords_action)
+        
+        # Load URL validations action
+        load_urls_action = QAction("Load &URL Validations...", self)
+        load_urls_action.setStatusTip("Load URL validation data from CSV file")
+        load_urls_action.triggered.connect(self.load_url_validations)
+        file_menu.addAction(load_urls_action)
         
         file_menu.addSeparator()
         
@@ -205,6 +216,7 @@ class MainWindow(QMainWindow):
         
         # Keyword panel signals
         self.keyword_panel.category_toggled.connect(self._on_category_toggled)
+        self.keyword_panel.url_status_toggled.connect(self._on_url_status_toggled)
         self.keyword_panel.search_changed.connect(self._on_search_changed)
         self.keyword_panel.refresh_requested.connect(self._refresh_keywords)
         
@@ -291,6 +303,30 @@ class MainWindow(QMainWindow):
                     f"Could not load keywords from:\n{file_path}"
                 )
     
+    
+    def load_url_validations(self):
+        """Load URL validations from a CSV file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load URL Validations CSV",
+            "",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        
+        if file_path:
+            if self.keyword_manager.load_url_validations(file_path):
+                self.keyword_panel.update_url_categories()
+                self.status_bar.showMessage(f"URL validations loaded from: {os.path.basename(file_path)}")
+                
+                # Re-render current page with new URL data
+                self._render_current_page()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error Loading URL Validations",
+                    f"Could not load URL validations from:\n{file_path}"
+                )
+    
     def _render_current_page(self):
         """Render the current page with keyword highlighting."""
         if not self.pdf_processor.document:
@@ -334,6 +370,12 @@ class MainWindow(QMainWindow):
         self._render_current_page()
         action = "enabled" if enabled else "disabled"
         self.status_bar.showMessage(f"Category '{category}' {action}")
+    
+    def _on_url_status_toggled(self, status: str, enabled: bool):
+        """Handle URL status toggle."""
+        self._render_current_page()
+        action = "enabled" if enabled else "disabled"
+        self.status_bar.showMessage(f"URL status '{status}' {action}")
     
     def _on_search_changed(self, search_term: str):
         """Handle search term changes."""
