@@ -24,7 +24,7 @@ from ui.keyword_panel import KeywordPanel
 
 class PDFRenderThread(QThread):
     """Thread for rendering PDF pages without blocking the UI."""
-    page_rendered = pyqtSignal(int, QImage)
+    page_rendered = pyqtSignal(QImage, int)
     error_occurred = pyqtSignal(str)
 
     def __init__(self, pdf_processor: PDFProcessor, page_number: int, zoom_level: float):
@@ -37,7 +37,7 @@ class PDFRenderThread(QThread):
         try:
             image = self.pdf_processor.render_page(self.page_number, self.zoom_level)
             if image:
-                self.page_rendered.emit(self.page_number, image)
+                self.page_rendered.emit(image, self.page_number)
             else:
                 self.error_occurred.emit(f"Failed to render page {self.page_number + 1}")
         except Exception as e:

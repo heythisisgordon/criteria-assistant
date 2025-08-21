@@ -1,54 +1,33 @@
-# Federal Facility Document Hierarchy Knowledge Graph
+# Criteria Assistant
 
-This repository models the hierarchy and relationships between key federal facility policy, standards, and criteria documents, including:
-- Executive Orders (EO)
-- DoD Directives (DoDD) & Instructions (DoDI)
-- Army Regulations (AR)
-- USACE Engineering Publications (ER, EM, EP, etc.)
-- MIL-STD-3007G, Unified Facilities Criteria (UFC), and Guide Specifications (UFGS)
-- Operational Documents (OPORDs, FRAGOs, WARNOs, etc.)
+A toolkit for building and annotating federal facility document knowledge graphs and viewing PDFs with live annotations.
 
-## 🔄 File Formats
-- `document_hierarchy_with_org.csv`: Flat table of subject → predicate → object with department info
-- `document_hierarchy_with_org.ttl`: RDF Turtle format for semantic web tools
-- `document_hierarchy_with_org.jsonld`: JSON-LD format for linked data applications
-- `document_hierarchy_mermaid.md`: Diagram definition file for copy/paste into markdown
+## Code Orientation
 
-## 📊 Graph Visualization
-A simplified diagram illustrating core relationships is embedded below:
+- **pyqt-pdf-analyzer/**  
+  - `main.py`: Application entry; sets up logging and starts the Qt event loop.  
+  - `core/`  
+    - `annotation_system.py`: Defines `Annotation`, `AnnotationProvider`, and `AnnotationManager`.  
+    - `keyword_provider.py`, `url_provider.py`: Load CSV data and find annotations in text.  
+    - `pdf_processor.py`: Loads and renders PDFs with layered annotations. Emits full tracebacks on error.  
+    - `config.py`: Paths, colors, and UI constants.  
+  - `ui/`  
+    - `main_window.py`: Menu, toolbar, status bar, and orchestrates PDF loading and annotation rendering threads.  
+    - `pdf_viewer.py`: Scrollable widget displaying pages, zoom controls, and page navigation.  
+    - `keyword_panel.py`: Sidebar for toggling annotation categories and viewing metadata per page.
 
-```mermaid
-graph TD
-  White_House -->|issues| Executive_Order
-  Executive_Order -->|drives_policy_of| DoD_Directive
-  DoD_Directive -->|implemented_by| DoD_Instruction
-  DoD_Instruction -->|implemented_by| Army_Regulation
-  Army_Regulation -->|implemented_by| Engineer_Regulation
-  Engineer_Regulation -->|governs| Engineering_Manual
-  Engineering_Manual -->|supplemented_by| Engineer_Technical_Letter
-  Engineer_Regulation -->|delegates_authority_to| Policy_Guidance_Letter
-  Engineering_Manual -->|referenced_by| Unified_Facilities_Guide_Specification
-  MIL_STD_3007 -->|governs| Unified_Facilities_Guide_Specification
-  USACE -->|issues| Engineer_Regulation
-  Tri_Service -->|maintains| Unified_Facilities_Guide_Specification
-```
+- **streamlit-test/**  
+  Prototype Streamlit app demonstrating keyword and URL highlighting using the same core logic.
 
-➡️ [View full diagram](./document_hierarchy_mermaid.md)
+- **data/**  
+  CSV/TTL/JSON-LD sources for building the document hierarchy knowledge graph.
 
-## 🧠 Use Cases
-- Power knowledge-graph-based RAG pipelines (e.g., LangChain, LlamaIndex)
-- Visualize document dependencies in compliance workflows
-- Link structured metadata to full-text document embeddings
+## Quick Start
 
-## 📦 Integration Uses
-- Neo4j via `LOAD CSV` or `RDF` plugins
-- SPARQL queries via GraphDB or Blazegraph
-- LangChain `KnowledgeGraphRetriever` or `GraphIndex`
+1. `pip install -r pyqt-pdf-analyzer/requirements.txt`  
+2. `python pyqt-pdf-analyzer/main.py`  
+3. File → Load Keywords / Load URL Validations  
+4. File → Open PDF (load a UFC/UFGS spec)  
+5. Toggle annotation categories in the sidebar
 
-## 📄 Source References
-- [MIL-STD-3007G (WBDG)](https://www.wbdg.org/FFC/FEDMIL/milstd3007g.pdf)
-- [Unified Facilities Criteria](https://www.wbdg.org/ffc/dod/unified-facilities-criteria-ufc)
-- [Unified Facilities Guide Specifications](https://www.wbdg.org/ffc/dod/unified-facilities-guide-specifications-ufgs)
-
-## License
-Public domain
+License: Public domain
