@@ -5,7 +5,7 @@ Handles PDF loading, rendering, and keyword highlighting.
 
 import fitz  # PyMuPDF
 from PIL import Image, ImageDraw, ImageFont
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QImage
 from PyQt6.QtCore import QObject, pyqtSignal
 import io
 import json
@@ -29,7 +29,7 @@ class PDFProcessor(QObject):
     """Handles PDF processing, rendering, and keyword highlighting."""
     
     # Signals
-    page_rendered = pyqtSignal(int, QPixmap)  # page_number, pixmap
+    page_rendered = pyqtSignal(int, QImage)  # page_number, image
     processing_finished = pyqtSignal()
     error_occurred = pyqtSignal(str)  # error_message
     
@@ -140,44 +140,43 @@ class PDFProcessor(QObject):
             except Exception:
                 logging.exception(f"Error processing page {page_num}")
     
-    def render_page(self, page_number: int, zoom_level: float = 1.0) -> Optional[QPixmap]:
+    def render_page(self, page_number: int, zoom_level: float = 1.0) -> Optional[QImage]:
         """
         Render a PDF page with keyword highlighting.
-        
+
         Args:
             page_number: Page number to render (0-based).
             zoom_level: Zoom level for rendering.
-            
+
         Returns:
-            QPixmap of the rendered page, or None if error.
+            QImage of the rendered page, or None if error.
         """
         if not self.document or page_number >= len(self.document):
             return None
-            
+
         try:
             page = self.document.load_page(page_number)
-            
+
             # Calculate DPI based on zoom level
             dpi = int(self.current_dpi * zoom_level)
-            
+
             # Render page to pixmap
             pix = page.get_pixmap(dpi=dpi)
-            
+
             # Convert to PIL Image for highlighting
             img_data = pix.tobytes("png")
             pil_image = Image.open(io.BytesIO(img_data))
-            
+
             # Apply highlighting (URLs + keywords)
             highlighted_image = self._apply_highlighting(
                 pil_image, page_number, zoom_level
             )
-            
-            # Convert back to QPixmap
+
+            # Convert back to QImage
             qimage = self._pil_to_qimage(highlighted_image)
-            pixmap = QPixmap.fromImage(qimage)
-            
-            return pixmap
-            
+
+            return qimage
+
         except Exception:
             logging.exception(f"Error rendering page {page_number}")
             return None

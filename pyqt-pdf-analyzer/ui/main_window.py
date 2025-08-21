@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QToolBar, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QAction, QIcon, QKeySequence, QPixmap
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QImage
 from typing import Optional
 
 from core.config import Config
@@ -24,18 +24,20 @@ from ui.keyword_panel import KeywordPanel
 
 class PDFRenderThread(QThread):
     """Thread for rendering PDF pages without blocking the UI."""
-    page_rendered = pyqtSignal(int, QPixmap)
+    page_rendered = pyqtSignal(int, QImage)
     error_occurred = pyqtSignal(str)
+
     def __init__(self, pdf_processor: PDFProcessor, page_number: int, zoom_level: float):
         super().__init__()
         self.pdf_processor = pdf_processor
         self.page_number = page_number
         self.zoom_level = zoom_level
+
     def run(self):
         try:
-            pixmap = self.pdf_processor.render_page(self.page_number, self.zoom_level)
-            if pixmap:
-                self.page_rendered.emit(self.page_number, pixmap)
+            image = self.pdf_processor.render_page(self.page_number, self.zoom_level)
+            if image:
+                self.page_rendered.emit(self.page_number, image)
             else:
                 self.error_occurred.emit(f"Failed to render page {self.page_number + 1}")
         except Exception as e:
@@ -199,9 +201,6 @@ class MainWindow(QMainWindow):
         self.current_render_thread.error_occurred.connect(self._on_pdf_error)
         self.current_render_thread.start()
         self._update_page_metadata(page)
-
-    def _on_page_rendered(self, page_number: int, pixmap: QPixmap):
-        self.pdf_viewer.set_pixmap(pixmap, page_number)
 
     def _on_page_changed(self, page_number: int):
         self._render_current_page()
