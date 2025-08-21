@@ -4,13 +4,14 @@ Main window for the PyQt PDF Document Analyzer.
 
 import logging
 import os
+import queue
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QMenuBar, QMenu, QStatusBar, QFileDialog,
     QMessageBox, QSplitter, QProgressBar, QLabel,
     QToolBar, QApplication
 )
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QImage
 from typing import Optional, Dict, Any
 
@@ -26,32 +27,47 @@ from ui.pdf_viewer import PDFViewerWidget
 from ui.keyword_panel import KeywordPanel
 
 
-class PDFRenderThread(QThread):
-    """Thread for rendering PDF pages without blocking the UI."""
+class PDFRenderWorker(QThread):
+    """Long-lived thread processing queued page render requests."""
     page_rendered = pyqtSignal(QImage, int)
     error_occurred = pyqtSignal(str)
 
-    def __init__(
-            self,
-            pdf_processor: PDFProcessor,
-            page_number: int,
-            zoom_level: float):
+    def __init__(self, pdf_processor: PDFProcessor):
         super().__init__()
         self.pdf_processor = pdf_processor
-        self.page_number = page_number
-        self.zoom_level = zoom_level
+        self._queue: "queue.Queue[tuple[int, float]]" = queue.Queue()
+        self._running = True
 
-    def run(self):
-        try:
-            image = self.pdf_processor.render_page(
-                self.page_number, self.zoom_level)
-            if image:
-                self.page_rendered.emit(image, self.page_number)
-            else:
-                self.error_occurred.emit(f"Failed to render page {self.page_number + 1}")
-        except Exception as e:
-            logging.exception("Error rendering page")
-            self.error_occurred.emit(f"Error rendering page: {str(e)}")
+    @pyqtSlot(int, float)
+    def request_render(self, page_number: int, zoom_level: float) -> None:
+        """Queue a page render request, keeping only the most recent one."""
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                break
+        self._queue.put((page_number, zoom_level))
+
+    def run(self) -> None:
+        while self._running:
+            page_number, zoom_level = self._queue.get()
+            if page_number is None:
+                break
+            try:
+                image = self.pdf_processor.render_page(page_number, zoom_level)
+                if image:
+                    self.page_rendered.emit(image, page_number)
+                else:
+                    self.error_occurred.emit(
+                        f"Failed to render page {page_number + 1}")
+            except Exception as e:
+                logging.exception("Error rendering page")
+                self.error_occurred.emit(f"Error rendering page: {str(e)}")
+
+    def stop(self) -> None:
+        self._running = False
+        self._queue.put((None, 0.0))
+        self.wait()
 
 
 class MainWindow(QMainWindow):
@@ -70,7 +86,7 @@ class MainWindow(QMainWindow):
             AnnotationType.URL_VALIDATION, self.url_provider)
         # Register renderers inside PDFProcessor
         self.pdf_processor = DebugPDFProcessor(self.annotation_manager)
-        self.current_render_thread: Optional[PDFRenderThread] = None
+        self.render_thread = PDFRenderWorker(self.pdf_processor)
 
         # UI components
         self.pdf_viewer: Optional[PDFViewerWidget] = None
@@ -80,6 +96,15 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         self._setup_connections()
+        # Render worker connections
+        self.render_thread.page_rendered.connect(self.pdf_viewer.set_pixmap)
+        self.render_thread.error_occurred.connect(self._on_pdf_error)
+        self.render_thread.start()
+
+        # Debounce timer for render requests
+        self._render_timer = QTimer(self)
+        self._render_timer.setSingleShot(True)
+        self._render_timer.timeout.connect(self._render_current_page)
 
         # Debug UI integration
         self.debug_toolbar = DebugToolbar(self)
@@ -267,23 +292,15 @@ class MainWindow(QMainWindow):
             return
         page = self.pdf_viewer.get_current_page()
         zoom = self.pdf_viewer.get_zoom_level()
-        if self.current_render_thread and self.current_render_thread.isRunning():
-            self.current_render_thread.terminate()
-            self.current_render_thread.wait()
-        self.current_render_thread = PDFRenderThread(
-            self.pdf_processor, page, zoom)
-        self.current_render_thread.page_rendered.connect(
-            self.pdf_viewer.set_pixmap)
-        self.current_render_thread.error_occurred.connect(self._on_pdf_error)
-        self.current_render_thread.start()
+        self.render_thread.request_render(page, zoom)
         self._update_page_metadata(page)
 
     def _on_page_changed(self, page_number: int):
-        self._render_current_page()
+        self._render_timer.start(150)
         self.status_bar.showMessage(f"Page {page_number + 1}")
 
     def _on_zoom_changed(self, zoom_level: float):
-        self._render_current_page()
+        self._render_timer.start(150)
         self.status_bar.showMessage(f"Zoom: {int(zoom_level * 100)}%")
 
     def _on_category_toggled(self, category: str, enabled: bool):
@@ -350,8 +367,7 @@ class MainWindow(QMainWindow):
             pass
 
     def closeEvent(self, event):
-        if self.current_render_thread and self.current_render_thread.isRunning():
-            self.current_render_thread.terminate()
-            self.current_render_thread.wait()
+        if self.render_thread.isRunning():
+            self.render_thread.stop()
         self.pdf_processor.close_document()
         event.accept()
