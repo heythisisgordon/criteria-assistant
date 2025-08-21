@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QPixmap, QPainter, QFont, QImage
 from typing import Optional
 
+import logging
 from core.config import Config
 
 class PDFViewerWidget(QScrollArea):
@@ -120,6 +121,7 @@ class PDFViewerWidget(QScrollArea):
         self.fit_width_button.clicked.connect(self.fit_to_width)
     
     def set_pixmap(self, image: QImage, page_number: int):
+        logging.debug(f"set_pixmap called for page {page_number}")
         """
         Set the rendered page image.
 
