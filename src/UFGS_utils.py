@@ -60,11 +60,18 @@ def extract_text(el):
 def get_line_number(el):
     return el.sourceline if hasattr(el, 'sourceline') else -1
 
+
+def _add_row(rows, depth, tag, num_str, element, ufgs_id, submittal=None, classification=None, text=None):
+    """Helper to append a row with extracted text and line number."""
+    content = text if text is not None else extract_text(element)
+    line = get_line_number(element)
+    rows.append((depth, tag, num_str, content, line, submittal, classification, ufgs_id))
+
 def parse_children(el, depth, num_str, ufgs_id):
     rows = []
     for ch in el:
         if ch.tag in ['ENG', 'MET']:
-            rows.append((depth+1, ch.tag, num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
+            _add_row(rows, depth+1, ch.tag, num_str, ch, ufgs_id)
         elif len(ch):
             rows += parse_children(ch, depth+1, num_str, ufgs_id)
     return rows
@@ -72,30 +79,30 @@ def parse_children(el, depth, num_str, ufgs_id):
 def parse_spt(el, depth, numbering, ufgs_id, submittal=None):
     rows = []
     num_str = '.'.join(map(str, numbering))
-    rows.append((depth, 'SPT', num_str, extract_text(el.find('TTL')), get_line_number(el.find('TTL')), None, None, ufgs_id))
+    _add_row(rows, depth, 'SPT', num_str, el.find('TTL'), ufgs_id)
     for ch in el:
         tag = ch.tag
         if tag == 'SCP':
-            rows.append((depth+1, 'SCP', num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
+            _add_row(rows, depth+1, 'SCP', num_str, ch, ufgs_id)
         elif tag == 'NTE':
             for npr in ch.findall('./NPR'):
-                rows.append((depth+1, 'NPR', num_str, extract_text(npr), get_line_number(npr), None, None, ufgs_id))
+                _add_row(rows, depth+1, 'NPR', num_str, npr, ufgs_id)
         elif tag == 'TXT':
-            rows.append((depth+1, 'TXT', num_str, extract_text(ch), get_line_number(ch), None, None, ufgs_id))
+            _add_row(rows, depth+1, 'TXT', num_str, ch, ufgs_id)
             rows += parse_children(ch, depth+1, num_str, ufgs_id)
         elif tag == 'LST':
             sub = ch.find('SUB')
             val = extract_text(sub)
             match = re.match(r"(SD-[0-9]{2})", val)
             submittal = match.group(1) if match else None
-            rows.append((depth+1, 'LST', num_str, val, get_line_number(ch), submittal, None, ufgs_id))
+            _add_row(rows, depth+1, 'LST', num_str, ch, ufgs_id, submittal, text=val)
         elif tag == 'ITM':
             subs = ch.findall('.//SUB')
             tag = 'SUB' if submittal else 'ITM'
             name = extract_text(subs[0]) if subs else extract_text(ch)
             clss = extract_text(subs[1]) if len(subs) > 1 else ''
             itm_depth = depth + 2 if submittal else depth + 1
-            rows.append((itm_depth, tag, num_str, name, get_line_number(ch), submittal, clss, ufgs_id))
+            _add_row(rows, itm_depth, tag, num_str, ch, ufgs_id, submittal, clss, text=name)
         elif tag == 'SPT':
             new_num = numbering + [len(el.findall('./SPT')) + 1]
             rows += parse_spt(ch, depth+1, new_num, ufgs_id, submittal)
