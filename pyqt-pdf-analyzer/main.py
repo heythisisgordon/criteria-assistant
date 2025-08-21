@@ -6,6 +6,7 @@ Main entry point for the UFC/UFGS PDF analysis application.
 
 import sys
 import os
+import logging
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from ui.main_window import MainWindow
@@ -14,7 +15,8 @@ def main():
     """Initialize and run the PDF analyzer application."""
     # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-    
+
+    logging.basicConfig(level=logging.DEBUG)
     app = QApplication(sys.argv)
     app.setApplicationName("UFC PDF Document Analyzer")
     app.setApplicationVersion("1.0.0")
