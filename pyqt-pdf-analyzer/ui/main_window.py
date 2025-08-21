@@ -2,6 +2,7 @@
 Main window for the PyQt PDF Document Analyzer.
 """
 
+import logging
 import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -237,6 +238,7 @@ class MainWindow(QMainWindow):
             self._render_current_page()
 
     def _on_pdf_error(self, msg: str):
+        logging.error(msg)
         QMessageBox.warning(self, "PDF Error", msg)
         self.status_bar.showMessage(f"Error: {msg}")
 
