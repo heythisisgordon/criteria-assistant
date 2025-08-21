@@ -8,7 +8,9 @@ import pandas as pd
 import re
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
+
 from core.config import Config
+from core.url_utils import COMPILED_URL_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +59,7 @@ class KeywordManager:
         self._url_lookup: Dict[str, URLValidation] = {}
         
         # URL detection patterns
-        self.url_patterns = [
-            r'https?://[^\s<>"{}|\\^`\[\]]+',  # Standard HTTP/HTTPS
-            r'www\.[^\s<>"{}|\\^`\[\]]+',      # www. domains
-            r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s<>"{}|\\^`\[\]]*)?',  # domain.com
-            r'mailto:[^\s<>"{}|\\^`\[\]]+'     # Email addresses
-        ]
-        self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.url_patterns]
+        self.compiled_patterns = COMPILED_URL_PATTERNS
         
     def load_keywords(self, csv_path: str = None) -> bool:
         """
