@@ -10,10 +10,7 @@ import os
 st.set_page_config(layout="wide")
 st.title("📄 UFC PDF Visualizer with Keyword Pills")
 
-# Add diagnostic print
-st.write("Files in directory:", os.listdir("streamlit-test/"))
-
-# Then attempt to read
+# Load keywords
 keyword_df = pd.read_csv("streamlit-test/keywords.csv")
 
 keyword_map = {
