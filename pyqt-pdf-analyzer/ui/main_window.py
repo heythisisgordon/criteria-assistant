@@ -97,8 +97,12 @@ class MainWindow(QMainWindow):
             lambda name, err, ctx: self.debug_toolbar.set_status(f"{name} ✗"))
 
         # Load default data
+        logging.debug(f"MainWindow.__init__: loading keywords from {self.keyword_provider.get_default_source_path()}")
         self.keyword_provider.load_data()
+        logging.debug(f"MainWindow.__init__: keywords loaded: {self.keyword_provider.get_enabled_categories()}")
+        logging.debug(f"MainWindow.__init__: loading URL validations from {self.url_provider.get_default_source_path()}")
         self.url_provider.load_data()
+        logging.debug(f"MainWindow.__init__: URL validations loaded: {self.url_provider.get_enabled_categories()}")
         self.keyword_panel.update_categories()
         self.keyword_panel.update_url_categories()
 
@@ -213,10 +217,12 @@ class MainWindow(QMainWindow):
             self._load_pdf(path)
 
     def _load_pdf(self, file_path: str):
+        logging.debug(f"MainWindow._load_pdf: start loading PDF at {file_path}")
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
         self.status_bar.showMessage("Loading PDF...")
         if self.pdf_processor.load_pdf(file_path):
+            logging.debug(f"MainWindow._load_pdf: PDF loaded successfully with {self.pdf_processor.get_page_count()} pages")
             count = self.pdf_processor.get_page_count()
             self.pdf_viewer.set_total_pages(count)
             self._render_current_page()
@@ -227,6 +233,7 @@ class MainWindow(QMainWindow):
                 f"Loaded PDF: {
                     os.path.basename(file_path)} ({count} pages)")
         else:
+            logging.error(f"MainWindow._load_pdf: failed to load PDF at {file_path}")
             QMessageBox.critical(
                 self,
                 "Error Loading PDF",

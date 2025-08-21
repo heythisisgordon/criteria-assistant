@@ -25,6 +25,9 @@ class Config:
     # PDF Rendering
     DEFAULT_DPI = 150
     HIGH_DPI = 300
+
+    # Annotation cache size to bound memory usage
+    ANNOTATION_CACHE_SIZE = 1000
     
     # Keyword highlighting colors (matching streamlit app)
     KEYWORD_COLORS = {

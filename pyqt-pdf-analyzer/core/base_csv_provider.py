@@ -7,7 +7,6 @@ from core.annotation_system import AnnotationProvider
 
 logger = logging.getLogger(__name__)
 
-
 class BaseCSVAnnotationProvider(AnnotationProvider):
     """Base class for annotation providers backed by CSV data."""
 
@@ -30,12 +29,15 @@ class BaseCSVAnnotationProvider(AnnotationProvider):
         """Load annotation data from CSV file."""
         if source_path is None:
             source_path = self.get_default_source_path()
+        logger.debug(f"Loading annotation data from: {source_path}")
         try:
             self.data_df = pd.read_csv(source_path)
+            logger.debug(f"DataFrame loaded with shape: {self.data_df.shape}")
             if not all(col in self.data_df.columns for col in self.required_columns):
                 raise ValueError(f"CSV must contain columns: {self.required_columns}")
             self.enabled_categories = set(self.data_df[self.category_column].unique())
             self._post_load()
+            logger.debug("Annotation data load successful")
             return True
         except Exception:
             logger.exception("Error loading data")

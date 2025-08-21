@@ -50,22 +50,28 @@ class PDFProcessor(QObject):
         Open the PDF document and reset state.
         Metadata is loaded on demand.
         """
+        logging.debug(f"PDFProcessor.load_pdf: Start loading PDF at {file_path}")
         try:
             if self.document:
+                logging.debug(f"PDFProcessor.load_pdf: Closing existing document {self.current_file_path}")
                 self.document.close()
+            logging.debug("PDFProcessor.load_pdf: Opening document")
             self.document = fitz.open(file_path)
             self.current_file_path = file_path
             self.page_metadata.clear()
+            logging.debug(f"PDFProcessor.load_pdf: PDF loaded successfully with {len(self.document)} pages")
             return True
         except Exception:
-            logging.exception("Error loading PDF")
+            logging.exception("PDFProcessor.load_pdf: Error loading PDF")
             return False
         
     def _ensure_page_metadata(self, page_num: int) -> None:
         """Extract metadata for a single page if not already cached."""
+        logging.debug(f"PDFProcessor._ensure_page_metadata: checking metadata cache for page {page_num}")
         if page_num in self.page_metadata or not self.document:
             return
         try:
+            logging.debug(f"PDFProcessor._ensure_page_metadata: extracting metadata for page {page_num}")
             page = self.document.load_page(page_num)
             text_content = page.get_text()
             blocks = page.get_text("dict").get("blocks", [])
@@ -79,29 +85,35 @@ class PDFProcessor(QObject):
             kws = [a for a in anns if a.annotation_type == AnnotationType.KEYWORD]
             urls = [a for a in anns if a.annotation_type == AnnotationType.URL_VALIDATION]
             self.page_metadata[page_num] = PageMetadata(page_num, text_content, boxes, kws, urls)
+            logging.debug(f"PDFProcessor._ensure_page_metadata: metadata cached for page {page_num}, text length={len(text_content)}")
         except Exception:
-            logging.exception(f"Error extracting metadata for page {page_num}")
+            logging.exception(f"PDFProcessor._ensure_page_metadata: Error extracting metadata for page {page_num}")
 
     def render_page(self, page_number: int, zoom_level: float = 1.0) -> Optional[QImage]:
         """
         Render a PDF page with highlighting.
         Uses a mutex to protect document access.
         """
+        logging.debug(f"PDFProcessor.render_page: start rendering page {page_number} at zoom {zoom_level}")
         if not self.document or page_number >= len(self.document):
+            logging.warning(f"PDFProcessor.render_page: invalid state document={self.document} or page {page_number} out of range")
             return None
         with QMutexLocker(self._document_mutex):
             try:
                 self._ensure_page_metadata(page_number)
+                logging.debug(f"PDFProcessor.render_page: metadata ready for page {page_number}")
                 page = self.document.load_page(page_number)
                 dpi = int(self.current_dpi * zoom_level)
+                logging.debug(f"PDFProcessor.render_page: rendering page {page_number} at dpi {dpi}")
                 pix = page.get_pixmap(dpi=dpi)
                 img_data = pix.tobytes("png")
                 pil_image = Image.open(io.BytesIO(img_data))
                 # apply highlighting
                 image = self._apply_highlighting(pil_image, page_number, zoom_level)
+                logging.debug(f"PDFProcessor.render_page: highlighting applied for page {page_number}")
                 return self._pil_to_qimage(image)
             except Exception:
-                logging.exception(f"Error rendering page {page_number}")
+                logging.exception(f"PDFProcessor.render_page: Error rendering page {page_number}")
                 return None
 
     def _apply_highlighting(self, image: Image.Image, page_number: int, zoom_level: float) -> Image.Image:
