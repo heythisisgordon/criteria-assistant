@@ -8,7 +8,9 @@ import pandas as pd
 import re
 from typing import Dict, List, Set, Optional, Callable, Any
 from dataclasses import dataclass
+
 from core.config import Config
+from core.url_utils import COMPILED_URL_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ class KeywordManager:
         self._url_lookup: Dict[str, URLValidation] = {}
         
         # URL detection patterns
+
         self.url_patterns = [
             r'https?://[^\s<>"{}|\\^`\[\]]+',  # Standard HTTP/HTTPS
             r'www\.[^\s<>"{}|\\^`\[\]]+',      # www. domains
