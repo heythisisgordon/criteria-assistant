@@ -1,7 +1,10 @@
+import logging
 import pandas as pd
 from typing import List, Set, Dict
 from core.annotation_system import AnnotationProvider, Annotation, AnnotationType
 from core.config import Config
+
+logger = logging.getLogger(__name__)
 
 class KeywordProvider(AnnotationProvider):
     """Provides keyword-based annotations."""
@@ -23,8 +26,8 @@ class KeywordProvider(AnnotationProvider):
             self._build_keyword_lookup()
             self.enabled_categories = set(self.keywords_df['category'].unique())
             return True
-        except Exception as e:
-            print(f"Error loading keywords: {e}")
+        except Exception:
+            logger.exception("Error loading keywords")
             return False
     
     def _build_keyword_lookup(self):

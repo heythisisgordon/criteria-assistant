@@ -3,11 +3,14 @@ Keyword and URL validation management for PDF analysis.
 Handles loading, filtering, and categorizing keywords and URL validations from CSV files.
 """
 
+import logging
 import pandas as pd
 import re
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 from core.config import Config
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Keyword:
@@ -105,8 +108,8 @@ class KeywordManager:
             
             return True
             
-        except Exception as e:
-            print(f"Error loading keywords: {e}")
+        except Exception:
+            logger.exception("Error loading keywords")
             return False
     
     def get_categories(self) -> List[str]:
@@ -234,8 +237,8 @@ class KeywordManager:
             
             return True
             
-        except Exception as e:
-            print(f"Error loading URL validations: {e}")
+        except Exception:
+            logger.exception("Error loading URL validations")
             return False
     
     def get_url_statuses(self) -> List[str]:
