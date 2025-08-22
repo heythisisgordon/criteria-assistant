@@ -59,7 +59,7 @@ class DebugPDFProcessor(QObject):
                 'time_ms': (end_time - start_time) * 1000,
                 'mem_before_mb': start_mem,
                 'mem_after_mb': end_mem,
-                'mem_delta_mb': end_mem - start_mem,
+                'memory_delta_mb': end_mem - start_mem,
                 'success': True
             }
             self.step_metrics[step_name] = metrics
@@ -95,9 +95,9 @@ class DebugPDFProcessor(QObject):
             'subject': info.subject
         }
 
-    def _step_load_page(self, page: int) -> bool:
+    def _step_load_page(self, page_num: int) -> bool:
         """Step 3: Load a page."""
-        return self.pipeline.load_page(page)
+        return self.pipeline.load_page(page_num)
 
     def _step_extract_text(self) -> str:
         """Step 4: Extract text."""

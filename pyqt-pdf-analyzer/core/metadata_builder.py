@@ -44,8 +44,9 @@ class PageMetadataBuilder:
                     span_texts.append(span["text"])
 
         # Batch annotation lookup for span texts
-        annotations_batch = self.annotation_manager.find_annotations_batch(span_texts)
-        for bbox, anns in zip(boxes, annotations_batch):
+        for bbox in boxes:
+            span_text = bbox["text"]
+            anns = self.annotation_manager.find_all_annotations_in_text(span_text)
             bbox["annotations"] = anns
 
         # Page-level annotations
