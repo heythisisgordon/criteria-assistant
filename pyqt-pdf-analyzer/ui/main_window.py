@@ -19,6 +19,8 @@ from core.config import Config
 from core.keyword_provider import KeywordProvider
 from core.url_provider import URLProvider
 from core.annotation_system import AnnotationManager, AnnotationType
+from services.PDFPipelineService import PDFPipelineService
+from core.annotation_renderers import KeywordRenderer, URLRenderer
 from core.pdf_processor import PDFProcessor
 from core.page_metadata import PageMetadata
 from core.debug_processor import DebugPDFProcessor
@@ -54,12 +56,14 @@ class PDFRenderWorker(QThread):
             if page_number is None:
                 break
             try:
-                image = self.pdf_processor.render_page(page_number, zoom_level)
-                if image:
-                    self.page_rendered.emit(image, page_number)
-                else:
-                    self.error_occurred.emit(
-                        f"Failed to render page {page_number + 1}")
+                # FIX: Use pdf_processor.pipeline instead of self.pipeline
+                pil_img = self.pdf_processor.pipeline.run_all(page_number, zoom_level)
+                if pil_img.mode != "RGB":
+                    pil_img = pil_img.convert("RGB")
+                w, h = pil_img.size
+                data = pil_img.tobytes("raw", "RGB")
+                qimg = QImage(data, w, h, QImage.Format.Format_RGB888)
+                self.page_rendered.emit(qimg, page_number)
             except Exception as e:
                 logging.exception("Error rendering page")
                 self.error_occurred.emit(f"Error rendering page: {str(e)}")
@@ -84,9 +88,18 @@ class MainWindow(QMainWindow):
             AnnotationType.KEYWORD, self.keyword_provider)
         self.annotation_manager.register_provider(
             AnnotationType.URL_VALIDATION, self.url_provider)
-        # Register renderers inside PDFProcessor
-        self.pdf_processor = DebugPDFProcessor(self.annotation_manager)
+        # Register renderers
+        self.annotation_manager.register_renderer(
+            AnnotationType.KEYWORD, KeywordRenderer())
+        self.annotation_manager.register_renderer(
+            AnnotationType.URL_VALIDATION, URLRenderer())
+        # Instantiate pipeline service
+        self.pipeline = PDFPipelineService(self.annotation_manager)
+        # Instantiate Qt processors
+        self.pdf_processor = PDFProcessor(self.pipeline)
+        self.debug_processor = DebugPDFProcessor(self.pipeline)
         self.render_thread = PDFRenderWorker(self.pdf_processor)
+        # FIX: Removed premature debug toolbar connections (they don't exist yet!)
 
         # UI components
         self.pdf_viewer: Optional[PDFViewerWidget] = None
@@ -111,15 +124,15 @@ class MainWindow(QMainWindow):
         self.addToolBar(self.debug_toolbar)
         self.debug_log_widget = DebugLogWidget(self)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.debug_log_widget)
-        # Connect debug signals
+        # Connect debug signals (AFTER creating the widgets!)
         self.debug_toolbar.step_requested.connect(self._on_debug_step)
-        self.pdf_processor.step_completed.connect(
+        self.debug_processor.step_completed.connect(
             self.debug_log_widget.append_metrics)
-        self.pdf_processor.step_failed.connect(
+        self.debug_processor.step_failed.connect(
             self.debug_log_widget.append_error)
-        self.pdf_processor.step_completed.connect(
+        self.debug_processor.step_completed.connect(
             lambda name, metrics: self.debug_toolbar.set_status(f"{name} ✓"))
-        self.pdf_processor.step_failed.connect(
+        self.debug_processor.step_failed.connect(
             lambda name, err, ctx: self.debug_toolbar.set_status(f"{name} ✗"))
 
         # Load default data
@@ -129,6 +142,7 @@ class MainWindow(QMainWindow):
         logging.debug(f"MainWindow.__init__: loading URL validations from {self.url_provider.get_default_source_path()}")
         self.url_provider.load_data()
         logging.debug(f"MainWindow.__init__: URL validations loaded: {self.url_provider.get_enabled_categories()}")
+        # FIX: Call these AFTER _setup_ui() has created keyword_panel
         self.keyword_panel.update_categories()
         self.keyword_panel.update_url_categories()
 
@@ -288,7 +302,8 @@ class MainWindow(QMainWindow):
             self._render_current_page()
 
     def _render_current_page(self):
-        if not self.pdf_processor.document:
+        # FIX: Use pdf_processor.pipeline.document instead of pdf_processor.document
+        if not self.pdf_processor.pipeline.document:
             return
         page = self.pdf_viewer.get_current_page()
         zoom = self.pdf_viewer.get_zoom_level()
@@ -334,7 +349,8 @@ class MainWindow(QMainWindow):
         self.url_provider.load_data()
         self.keyword_panel.update_categories()
         self.keyword_panel.update_url_categories()
-        if self.pdf_processor.document:
+        # FIX: Use pdf_processor.pipeline.document
+        if self.pdf_processor.pipeline.document:
             self._render_current_page()
 
     def _on_pdf_error(self, msg: str):
@@ -362,7 +378,7 @@ class MainWindow(QMainWindow):
         """Handle debug toolbar step request."""
         try:
             self.debug_toolbar.set_status(f"Running {step_name}...")
-            self.pdf_processor.execute_step(step_name, **params)
+            self.debug_processor.execute_step(step_name, **params)
         except Exception:
             pass
 

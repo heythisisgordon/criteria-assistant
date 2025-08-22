@@ -65,4 +65,3 @@ class PageMetadataBuilder:
             page_num,
         )
         return PageMetadata(page_num, text_content, boxes, kws, urls)
-

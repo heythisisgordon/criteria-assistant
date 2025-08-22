@@ -1,4 +1,4 @@
-# Criteria Assistant
+# Criteria Assistant v2.0.0
 
 A toolkit for building and annotating federal facility document knowledge graphs and viewing PDFs with live annotations.
 
@@ -29,10 +29,40 @@ A toolkit for building and annotating federal facility document knowledge graphs
 
 ## Quick Start
 
-1. `pip install -r pyqt-pdf-analyzer/requirements.txt`  
-2. `python pyqt-pdf-analyzer/main.py`  
-3. File → Load Keywords / Load URL Validations  
-4. File → Open PDF (load a UFC/UFGS spec)  
+1. `pip install -r pyqt-pdf-analyzer/requirements.txt`
+2. Change into the application directory and run the main script:
+   ```bash
+   cd pyqt-pdf-analyzer && python main.py
+   ```
+3. In the application: File → Load Keywords / Load URL Validations
+4. File → Open PDF (load a UFC/UFGS spec)
 5. Toggle annotation categories in the sidebar
+
+## Programmatic API
+
+Access the core PDF processing pipeline directly in code:
+
+```python
+from services.PDFPipelineService import PDFPipelineService
+from core.annotation_system import AnnotationManager, AnnotationType
+from core.keyword_provider import KeywordProvider
+from core.url_provider import URLProvider
+from core.annotation_renderers import KeywordRenderer, URLRenderer
+
+# Initialize AnnotationManager and providers/renderers
+am = AnnotationManager()
+am.register_provider(AnnotationType.KEYWORD, KeywordProvider())
+am.register_provider(AnnotationType.URL_VALIDATION, URLProvider())
+am.register_renderer(AnnotationType.KEYWORD, KeywordRenderer())
+am.register_renderer(AnnotationType.URL_VALIDATION, URLRenderer())
+
+# Create pipeline service
+pipeline = PDFPipelineService(am)
+
+# Execute pipeline
+pipeline.open_document('path/to/pdf.pdf')
+doc_info = pipeline.get_info()
+image = pipeline.run_all(page=0, zoom=1.0)
+```
 
 License: Public domain
