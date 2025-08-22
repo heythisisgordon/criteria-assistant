@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 import fitz
 from PIL import Image, ImageDraw
+import io
 from core.annotation_system import AnnotationManager, AnnotationType
 from core.metadata_builder import PageMetadataBuilder
 from core.page_metadata import PageMetadata
@@ -89,7 +90,8 @@ class PDFPipelineService:
         page = self.document.load_page(self.current_page_num)
         dpi = int(72 * zoom)
         pix = page.get_pixmap(dpi=dpi)
-        image = Image.open(pix.tobytes("png"))
+        png_data = pix.tobytes("png")
+        image = Image.open(io.BytesIO(png_data))
         self.current_image = image
         return image
 
@@ -97,7 +99,7 @@ class PDFPipelineService:
         """Step 7: Apply annotation highlights to the rendered image."""
         if self.current_image is None:
             raise ValueError("No image rendered")
-        image = self.current_image.copy()
+        image = self.current_image.copy().convert('RGBA')
         draw = ImageDraw.Draw(image)
         pm = self.page_metadata.get(self.current_page_num)
         if pm:
@@ -105,7 +107,7 @@ class PDFPipelineService:
                 bounds = {k: int(v) for k, v in bbox.items() if k.startswith(("x", "y"))}
                 anns = bbox.get("annotations", [])
                 self.annotation_manager.render_annotations(anns, draw, bounds)
-        return image
+        return image.convert('RGB')
 
     def run_all(self, page: int, zoom: float) -> Image.Image:
         """
