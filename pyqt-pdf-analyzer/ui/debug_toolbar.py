@@ -1,8 +1,15 @@
 import time
 from typing import Dict, Any
 from PyQt6.QtWidgets import (
-    QToolBar, QPushButton, QLabel, QSpinBox,
-    QTextEdit, QDockWidget, QVBoxLayout, QWidget
+    QToolBar,
+    QPushButton,
+    QLabel,
+    QSpinBox,
+    QTextEdit,
+    QDockWidget,
+    QVBoxLayout,
+    QWidget,
+    QFileDialog,
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
@@ -17,9 +24,9 @@ class DebugToolbar(QToolBar):
         self._setup_ui()
         
     def _setup_ui(self):
-        # Step 1: Open PDF
+        # Step 1: Open PDF (show file dialog and emit path)
         self.btn_open = QPushButton("1. Open PDF")
-        self.btn_open.clicked.connect(lambda: self.step_requested.emit("open_document", {}))
+        self.btn_open.clicked.connect(self._on_open_pdf)
         self.addWidget(self.btn_open)
         
         # Step 2: Get Info
@@ -34,9 +41,10 @@ class DebugToolbar(QToolBar):
         self.page_spinner.setMinimum(0)
         self.addWidget(self.page_spinner)
         
+        # Step 3: Load Page
         self.btn_load = QPushButton("3. Load Page")
         self.btn_load.clicked.connect(
-            lambda: self.step_requested.emit("load_page", {"page": self.page_spinner.value()})
+            lambda: self.step_requested.emit("load_page", {"page_num": self.page_spinner.value()})
         )
         self.addWidget(self.btn_load)
         
@@ -75,6 +83,17 @@ class DebugToolbar(QToolBar):
         self.addSeparator()
         self.status_label = QLabel("Ready")
         self.addWidget(self.status_label)
+    
+    def _on_open_pdf(self):
+        """Show file dialog and emit open_document with path."""
+        path, _ = QFileDialog.getOpenFileName(
+            self.parent(),
+            "Open PDF Document",
+            "",
+            "PDF Files (*.pdf);;All Files (*)"
+        )
+        if path:
+            self.step_requested.emit("open_document", {"path": path})
     
     def set_status(self, message: str):
         """Update status display."""

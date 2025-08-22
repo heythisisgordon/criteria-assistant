@@ -19,6 +19,11 @@ class PDFProcessor(QObject):
         self.pipeline = pipeline
         self._mutex = QMutex()
 
+    @property
+    def document(self):
+        """Provide access to the underlying document."""
+        return self.pipeline.document
+
     def load_pdf(self, path: str) -> bool:
         """
         Step 1: Open PDF document.
