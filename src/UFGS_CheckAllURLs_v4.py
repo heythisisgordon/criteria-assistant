@@ -39,13 +39,26 @@ except ImportError as e:
         await asyncio.sleep(0)
     is_reachable_async_func = placeholder_is_reachable_async
     class AsyncClientPlaceholder:
-        async def __aenter__(self): await asyncio.sleep(0); return self
-        async def __aexit__(self, *args): await asyncio.sleep(0)
+        async def __aenter__(self):
+            await asyncio.sleep(0)
+            return self
+
+        async def __aexit__(self, *args):
+            await asyncio.sleep(0)
+
     AsyncClient_class = AsyncClientPlaceholder
+
     class TaskPoolPlaceholder:
-        def __init__(self, *args, **kwargs): self._results = []
-        async def put(self, coro): await asyncio.sleep(0); self._results.append(None)
-        async def join(self): await asyncio.sleep(0)
+        def __init__(self, *args, **kwargs):
+            self._results = []
+
+        async def put(self, coro):
+            await asyncio.sleep(0)
+            self._results.append(None)
+
+        async def join(self):
+            await asyncio.sleep(0)
+
     TaskPool_class = TaskPoolPlaceholder
 
 # Imports for Excel formatting
@@ -103,20 +116,26 @@ def debug_print(message):
         print(message)
 
 def is_email(url_to_check):
-    if not isinstance(url_to_check, str): return False
+    if not isinstance(url_to_check, str):
+        return False
     return url_to_check.startswith("mailto:") or '@' in url_to_check
 
 def is_wbdg_url(url_to_check):
-    if isinstance(url_to_check, str): return "wbdg.org" in url_to_check.lower()
+    if isinstance(url_to_check, str):
+        return "wbdg.org" in url_to_check.lower()
     return False
 
 def parse_reachable_result(result_dict: dict, original_url_input: str, current_run_error_counts: dict):
-    validation_status = "FAIL"; current_status_code = None; current_final_url = original_url_input
-    error_message = "Initial parsing error"; check_certainty = "HIGH"
+    validation_status = "FAIL"
+    current_status_code = None
+    current_final_url = original_url_input
+    error_message = "Initial parsing error"
+    check_certainty = "HIGH"
 
     if not isinstance(result_dict, dict):
         error_message = f"Invalid result: expected dict, got {type(result_dict)}"
-        if original_url_input not in current_run_error_counts: current_run_error_counts[original_url_input] = 0
+        if original_url_input not in current_run_error_counts:
+            current_run_error_counts[original_url_input] = 0
         current_run_error_counts[original_url_input] += 1
         return ("PROCESSING_ERROR", None, original_url_input, error_message, is_wbdg_url(original_url_input), "LOW")
 
@@ -132,7 +151,8 @@ def parse_reachable_result(result_dict: dict, original_url_input: str, current_r
         validation_status = result_dict.get('custom_status', "FAIL_WORKER")
         current_final_url = url_str_from_dict
         current_status_code = result_dict.get('status_code')
-        if original_url_input not in current_run_error_counts: current_run_error_counts[original_url_input] = 0
+        if original_url_input not in current_run_error_counts:
+            current_run_error_counts[original_url_input] = 0
         current_run_error_counts[original_url_input] += 1
         return (validation_status, current_status_code, current_final_url, error_message, wbdg_check, "HIGH")
 
@@ -169,7 +189,8 @@ def parse_reachable_result(result_dict: dict, original_url_input: str, current_r
             error_message = "WBDG: Content check triggered an error page."
             if is_parked: error_message += f" {parked_domain_message}"
             check_certainty = "HIGH"
-            if original_url_input not in current_run_error_counts: current_run_error_counts[original_url_input] = 0
+            if original_url_input not in current_run_error_counts:
+                current_run_error_counts[original_url_input] = 0
             current_run_error_counts[original_url_input] += 1
             debug_print(f"    ==> Final parse_reachable_result for {original_url_input}: Status={validation_status}, Code={current_status_code}, FinalURL='{current_final_url}', Msg='{error_message}', WBDG={wbdg_check}, Certainty={check_certainty}")
             return (validation_status, current_status_code, current_final_url, error_message, wbdg_check, check_certainty)
@@ -205,7 +226,8 @@ def parse_reachable_result(result_dict: dict, original_url_input: str, current_r
             error_message = f"{error_message} {parked_note}" if error_message else parked_note
 
         check_certainty = "HIGH"
-        if original_url_input not in current_run_error_counts: current_run_error_counts[original_url_input] = 0
+        if original_url_input not in current_run_error_counts:
+            current_run_error_counts[original_url_input] = 0
         current_run_error_counts[original_url_input] += 1
 
     debug_print(f"    ==> Final parse_reachable_result for {original_url_input}: Status={validation_status}, Code={current_status_code}, FinalURL='{current_final_url}', Msg='{error_message}', WBDG={wbdg_check}, Certainty={check_certainty}")
@@ -272,12 +294,14 @@ def parse_sec_file_for_urls(file_path, current_id_counter):
                 cleaned_url_txt = re.sub(r'<[^>]+>', '', url_txt.strip()).strip()
                 if ' ' not in cleaned_url_txt and (cleaned_url_txt.count('.') >= 1 or '@' in cleaned_url_txt or cleaned_url_txt.lower().startswith("www.")): primary_url = cleaned_url_txt
                 elif cleaned_url_txt.lower().startswith("http"): primary_url = cleaned_url_txt
-            if not primary_url: continue
+            if not primary_url:
+                continue
             char_offset, line_number = match.start(), content.count('\n', 0, match.start()) + 1
             extracted_rows.append((current_id_counter, os.path.basename(file_path), line_number, char_offset, url_txt, url_href, primary_url))
             current_id_counter += 1
             urls_found_in_file += 1
-    except Exception as e: debug_print(f"  Error parsing URLs in {os.path.basename(file_path)}: {e}")
+    except Exception as e:
+        debug_print(f"  Error parsing URLs in {os.path.basename(file_path)}: {e}")
     debug_print(f"  Finished parsing URLs for {os.path.basename(file_path)}. Found {urls_found_in_file} URLs.")
     return extracted_rows, current_id_counter
 
@@ -290,7 +314,8 @@ def extract_file_metadata(file_path):
         if (m := stl_pattern.search(content_start)): metadata['Section Title'] = ' '.join(m.group(1).split()).strip()
         if (m := dte_pattern.search(content_start)): metadata['Date'] = m.group(1).strip()
         if (m := pra_pattern.search(content_start)): metadata['Preparing Authority'] = ' '.join(m.group(1).split()).strip()
-    except Exception as e: debug_print(f"  Error extracting metadata from {filename}: {e}")
+    except Exception as e:
+        debug_print(f"  Error extracting metadata from {filename}: {e}")
     return metadata
 
 def auto_fit_columns(worksheet: Worksheet, columns_to_fit=None, max_width=100, padding=3):
@@ -305,7 +330,8 @@ def auto_fit_columns(worksheet: Worksheet, columns_to_fit=None, max_width=100, p
                 if cell.coordinate in merged_range_obj:
                     if cell.row == merged_range_obj.min_row and cell.column == merged_range_obj.min_col:
                         cell_val_len = len(str(worksheet.cell(row=merged_range_obj.min_row, column=merged_range_obj.min_col).value or ""))
-                    is_merged = True; break
+                    is_merged = True
+                    break
             if not is_merged and cell.value is not None: cell_val_len = len(str(cell.value or ""))
             if cell_val_len > max_length: max_length = cell_val_len
         worksheet.column_dimensions[column_letter].width = min(max(max_length + padding, 8), max_width)
@@ -323,39 +349,51 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
     try:
         import reachable as r_check_main
         print(f"Reachable library version (main script): {getattr(r_check_main, '__version__', '0.7.0 (User Confirmed)')}")
-    except ImportError: print("Could not import 'reachable' for version check in main script.")
+    except ImportError:
+        print("Could not import 'reachable' for version check in main script.")
     print(f"httpx library version: {getattr(httpx, '__version__', 'N/A')}")
 
     if run_label == "1_worker" or (run_label != "100_workers_use_cache" and not os.path.exists(zip_file_path)):
         if not ufgs_download_url or "REPLACE_WITH_CORRECT_UFGS_ZIP_DOWNLOAD_LINK" in ufgs_download_url:
-            print(f"[{run_label}] Error: UFGS download URL not set. Exiting."); return pd.DataFrame()
+            print(f"[{run_label}] Error: UFGS download URL not set. Exiting.")
+            return pd.DataFrame()
         debug_print(f"[{run_label}] Downloading from: {ufgs_download_url}")
         try:
             with httpx.Client(verify=False) as client:
                 with client.stream("GET", ufgs_download_url, follow_redirects=True, timeout=60.0) as response:
                     response.raise_for_status()
                     with open(zip_file_path, 'wb') as f:
-                        for chunk in response.iter_bytes(8192):
-                            f.write(chunk)
+                        [f.write(chunk) for chunk in response.iter_bytes(8192)]
             print(f"[{run_label}] Download complete: {zip_file_path}")
-        except Exception as e: print(f"[{run_label}] Download error: {e}"); return pd.DataFrame()
+        except Exception as e:
+            print(f"[{run_label}] Download error: {e}")
+            return pd.DataFrame()
     elif os.path.exists(zip_file_path):
-         print(f"[{run_label}] Using existing/cached zip file: {zip_file_path}")
+        print(f"[{run_label}] Using existing/cached zip file: {zip_file_path}")
     else:
-        print(f"[{run_label}] Zip file logic error. Exiting."); return pd.DataFrame()
+        print(f"[{run_label}] Zip file logic error. Exiting.")
+        return pd.DataFrame()
 
-    if not os.path.exists(zip_file_path): print(f"[{run_label}] Zip file not found: {zip_file_path}"); return pd.DataFrame()
-    if os.path.exists(extract_path): shutil.rmtree(extract_path)
+    if not os.path.exists(zip_file_path):
+        print(f"[{run_label}] Zip file not found: {zip_file_path}")
+        return pd.DataFrame()
+    if os.path.exists(extract_path):
+        shutil.rmtree(extract_path)
     os.makedirs(extract_path)
     debug_print(f"[{run_label}] Extracting zip file...")
     try:
-        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref: zip_ref.extractall(extract_path)
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_path)
         debug_print(f"[{run_label}] Extraction complete.")
-    except Exception as e: print(f"[{run_label}] Zip extraction error: {e}"); return pd.DataFrame()
+    except Exception as e:
+        print(f"[{run_label}] Zip extraction error: {e}")
+        return pd.DataFrame()
 
     all_url_rows_list = []
     sec_files_found_list = [os.path.join(r, i) for r, _, f in os.walk(extract_path) for i in f if i.lower().endswith('.sec')]
-    if not sec_files_found_list: print(f"[{run_label}] No '.SEC' files found in {extract_path}."); return pd.DataFrame()
+    if not sec_files_found_list:
+        print(f"[{run_label}] No '.SEC' files found in {extract_path}.")
+        return pd.DataFrame()
     print(f"[{run_label}] Found {len(sec_files_found_list)} .SEC files to process.")
     sec_files_found_list.sort()
 
@@ -368,7 +406,8 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
 
     df_file_metadata = pd.DataFrame(file_metadata_list_collector)
     initial_url_cols = ['ID', 'SEC_FILE_NAME', 'DOC_LINE_NUMBER', 'DOC_CHAR_OFFSET', 'URL_TXT', 'URL_HREF', 'PRIMARY_URL']
-    if not all_url_rows_list: print(f"[{run_label}] Warning: No URLs found.")
+    if not all_url_rows_list:
+        print(f"[{run_label}] Warning: No URLs found.")
     current_run_df_urls = pd.DataFrame(all_url_rows_list, columns=initial_url_cols) if all_url_rows_list else pd.DataFrame(columns=initial_url_cols)
 
     df_specs = pd.DataFrame(TARGET_SPECS_DATA, columns=['UFGS', 'Discipline_Spec'])
@@ -379,7 +418,8 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
 
     def assign_division_01(row):
         sec_file_name_str = str(row.get('SEC_FILE_NAME', ''))
-        if re.match(r"^01(\s|[^a-zA-Z0-9_.-]|$)", sec_file_name_str): return "DIVISION 01"
+        if re.match(r"^01(\s|[^a-zA-Z0-9_.-]|$)", sec_file_name_str):
+            return "DIVISION 01"
         return row['Discipline']
 
     if 'SEC_FILE_NAME' in current_run_df_urls.columns and 'Discipline' in current_run_df_urls.columns:
@@ -394,7 +434,8 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
 
     for u_url_str_raw in unique_primary_urls_raw:
         u_url_str = str(u_url_str_raw).strip()
-        if not u_url_str: continue
+        if not u_url_str:
+            continue
         if is_email(u_url_str): email_urls_for_map_collector.append(u_url_str)
         else:
             sanitized_check = re.sub(r'[^\x20-\x7E]+', '', u_url_str).strip()
@@ -424,16 +465,22 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
             results_by_url_map = {res.get('original_url'): res for res in batch_results_list_data if isinstance(res, dict) and 'original_url' in res}
             for url_k in unique_primary_urls_for_batch_collector:
                 res_d = results_by_url_map.get(url_k)
-                if res_d: current_run_validation_results_map[url_k] = parse_reachable_result(res_d, url_k, current_run_error_counts)
+                if res_d:
+                    current_run_validation_results_map[url_k] = parse_reachable_result(res_d, url_k, current_run_error_counts)
                 else:
                     current_run_validation_results_map[url_k] = ("BATCH_MISSING_RESULT", None, url_k, "Result missing/unmappable", is_wbdg_url(url_k), "LOW")
-                    if url_k not in current_run_error_counts: current_run_error_counts[url_k] = 0; current_run_error_counts[url_k]+=1;
+                    if url_k not in current_run_error_counts:
+                        current_run_error_counts[url_k] = 0
+                    current_run_error_counts[url_k] += 1
         else:
             debug_print(f"[{run_label}] Async validation unexpected result type: {type(batch_results_list_data)}.")
             for url_v in unique_primary_urls_for_batch_collector:
                 current_run_validation_results_map[url_v] = ("ASYNC_ERROR", None, url_v, f"Async bad type: {type(batch_results_list_data)}", is_wbdg_url(url_v), "LOW")
-                if url_v not in current_run_error_counts: current_run_error_counts[url_v] = 0; current_run_error_counts[url_v]+=1;
-    else: print(f"[{run_label}] No non-email, valid URLs for async batch.")
+                if url_v not in current_run_error_counts:
+                    current_run_error_counts[url_v] = 0
+                current_run_error_counts[url_v] += 1
+    else:
+        print(f"[{run_label}] No non-email, valid URLs for async batch.")
 
     result_cols = ['STATUS', 'RESPONSE_CODE', 'FINAL_URL', 'ERROR_MSG', 'IS_WBDG', 'CHECK_CERTAINTY']
     if not current_run_df_urls.empty:
@@ -442,23 +489,31 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
         def get_res_part(item, idx):
             if pd.isna(item) or not isinstance(item, tuple) or len(item) != 6:
                 col_nm = result_cols[idx] if idx < len(result_cols) else "UNKNOWN_COLUMN"
-                if col_nm == 'IS_WBDG': return False
-                if col_nm == 'CHECK_CERTAINTY': return "UNKNOWN"
-                if col_nm == 'STATUS': return "NOT_MAPPED"
+                if col_nm == 'IS_WBDG':
+                    return False
+                if col_nm == 'CHECK_CERTAINTY':
+                    return "UNKNOWN"
+                if col_nm == 'STATUS':
+                    return "NOT_MAPPED"
                 return None
             return item[idx]
-        for i, col_nm in enumerate(result_cols): current_run_df_urls[col_nm] = val_series.apply(lambda x: get_res_part(x, i))
+        for i, col_nm in enumerate(result_cols):
+            current_run_df_urls[col_nm] = val_series.apply(lambda x: get_res_part(x, i))
 
         for col, def_val, dtype in [('IS_WBDG', False, bool), ('CHECK_CERTAINTY', "UNKNOWN", str), ('STATUS', "NOT_MAPPED", str)]:
-            if col in current_run_df_urls.columns: current_run_df_urls[col] = current_run_df_urls[col].fillna(def_val).astype(dtype)
-            else: current_run_df_urls[col] = def_val
+            if col in current_run_df_urls.columns:
+                current_run_df_urls[col] = current_run_df_urls[col].fillna(def_val).astype(dtype)
+            else:
+                current_run_df_urls[col] = def_val
 
         if 'PRIMARY_URL_STR' in current_run_df_urls.columns and not current_run_df_urls.empty :
             if not current_run_df_urls['PRIMARY_URL_STR'].empty:
                 current_run_df_urls['COUNT'] = current_run_df_urls.groupby('PRIMARY_URL_STR')['PRIMARY_URL_STR'].transform('count').fillna(1).astype(int)
-            else: current_run_df_urls['COUNT'] = 1
+            else:
+                current_run_df_urls['COUNT'] = 1
             current_run_df_urls.drop(columns=['PRIMARY_URL_STR'], inplace=True, errors='ignore')
-        else: current_run_df_urls['COUNT'] = 1
+        else:
+            current_run_df_urls['COUNT'] = 1
     else:
         excel_output_cols_list = initial_url_cols + result_cols + ['Discipline', 'COUNT']
         current_run_df_urls = pd.DataFrame(columns=excel_output_cols_list)
@@ -468,7 +523,10 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
         debug_print(f"[{run_label}] Saving DataFrame to Excel: {run_specific_excel_path}")
         try:
             with pd.ExcelWriter(run_specific_excel_path, engine='openpyxl') as writer:
-                summary_sheet_name = 'Summary'; main_sheet_name = 'URL_Checks'; file_list_sheet_name = 'File_List'; spec_list_sheet_name = 'Spec_List'
+                summary_sheet_name = 'Summary'
+                main_sheet_name = 'URL_Checks'
+                file_list_sheet_name = 'File_List'
+                spec_list_sheet_name = 'Spec_List'
                 # New column order for Excel output
                 output_columns_main = ['ID', 'SEC_FILE_NAME', 'Discipline', 'STATUS', 'COUNT',
                                        'DOC_LINE_NUMBER', 'DOC_CHAR_OFFSET', 'IS_WBDG',
@@ -476,47 +534,242 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
                                        'URL_TXT', 'FINAL_URL', 'ERROR_MSG']
                 output_columns_filelist = ['Filename', 'Section Number', 'Section Title', 'Date', 'Preparing Authority']
                 ws_summary = writer.book.create_sheet(summary_sheet_name, 0)
-                header_font = Font(bold=False, size=24); sub_header_font = Font(bold=True); percent_format_string = '0.0%'; header_fill = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid"); grey_fill_summary_label = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid"); thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')); center_align = Alignment(horizontal='center', vertical='center'); left_align = Alignment(horizontal='left', vertical='center')
-                current_row = 1; overall_header_cell = ws_summary.cell(row=current_row, column=1, value=f"Overall Summary ({run_label})"); overall_header_cell.font = header_font; overall_header_cell.fill = header_fill; ws_summary.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2); current_row += 1; overall_cells = {}; overall_start_row = current_row
+                header_font = Font(bold=False, size=24)
+                sub_header_font = Font(bold=True)
+                percent_format_string = '0.0%'
+                header_fill = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid")
+                grey_fill_summary_label = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+                thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                center_align = Alignment(horizontal='center', vertical='center')
+                left_align = Alignment(horizontal='left', vertical='center')
+                current_row = 1
+                overall_header_cell = ws_summary.cell(row=current_row, column=1, value=f"Overall Summary ({run_label})")
+                overall_header_cell.font = header_font
+                overall_header_cell.fill = header_fill
+                ws_summary.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2)
+                current_row += 1
+                overall_cells = {}
+                overall_start_row = current_row
 
                 current_summary_data_for_excel = {}
                 if not current_run_df_urls.empty and 'PRIMARY_URL' in current_run_df_urls.columns:
-                    total_urls_in_df = len(current_run_df_urls); unique_urls_in_df = current_run_df_urls['PRIMARY_URL'].nunique()
-                    fail_status_df = current_run_df_urls[current_run_df_urls['STATUS'] == 'FAIL']; total_fail_status = len(fail_status_df); unique_fail_status = fail_status_df['PRIMARY_URL'].nunique()
-                    wbdg_content_error_df = current_run_df_urls[current_run_df_urls['STATUS'] == 'WARN_WBDG_CONTENT_ERROR']; total_wbdg_content_errors = len(wbdg_content_error_df); unique_wbdg_content_errors = wbdg_content_error_df['PRIMARY_URL'].nunique()
-                    total_error_counted_occurrences = sum(current_run_error_counts.values()); unique_error_counted_urls = len(current_run_error_counts)
-                    current_summary_data_for_excel['Overall'] = {'Total URL Entries Processed (in DataFrame)': total_urls_in_df, 'Unique Primary URLs Encountered': unique_urls_in_df,'Total URL Failures (Status: FAIL)': total_fail_status, 'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)': total_wbdg_content_errors,'Total Error Occurrences (from error_counts dict)': total_error_counted_occurrences,'Unique URL Failures (Status: FAIL)': unique_fail_status, 'Unique WBDG Content Warnings': unique_wbdg_content_errors,'Unique URLs with Errors (from error_counts dict)': unique_error_counted_urls,'% Total Entries with Failures (Status: FAIL)': None, '% Unique URLs with Failures (Status: FAIL)': None,'% Total Entries with WBDG Warnings': None, '% Unique URLs with WBDG Warnings': None}
+                    total_urls_in_df = len(current_run_df_urls)
+                    unique_urls_in_df = current_run_df_urls['PRIMARY_URL'].nunique()
+                    fail_status_df = current_run_df_urls[current_run_df_urls['STATUS'] == 'FAIL']
+                    total_fail_status = len(fail_status_df)
+                    unique_fail_status = fail_status_df['PRIMARY_URL'].nunique()
+                    wbdg_content_error_df = current_run_df_urls[current_run_df_urls['STATUS'] == 'WARN_WBDG_CONTENT_ERROR']
+                    total_wbdg_content_errors = len(wbdg_content_error_df)
+                    unique_wbdg_content_errors = wbdg_content_error_df['PRIMARY_URL'].nunique()
+                    total_error_counted_occurrences = sum(current_run_error_counts.values())
+                    unique_error_counted_urls = len(current_run_error_counts)
+                    current_summary_data_for_excel['Overall'] = {
+                        'Total URL Entries Processed (in DataFrame)': total_urls_in_df,
+                        'Unique Primary URLs Encountered': unique_urls_in_df,
+                        'Total URL Failures (Status: FAIL)': total_fail_status,
+                        'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)': total_wbdg_content_errors,
+                        'Total Error Occurrences (from error_counts dict)': total_error_counted_occurrences,
+                        'Unique URL Failures (Status: FAIL)': unique_fail_status,
+                        'Unique WBDG Content Warnings': unique_wbdg_content_errors,
+                        'Unique URLs with Errors (from error_counts dict)': unique_error_counted_urls,
+                        '% Total Entries with Failures (Status: FAIL)': None,
+                        '% Unique URLs with Failures (Status: FAIL)': None,
+                        '% Total Entries with WBDG Warnings': None,
+                        '% Unique URLs with WBDG Warnings': None
+                    }
                     discipline_summary_excel = {}
                     if 'Discipline' in current_run_df_urls.columns:
                         grouped = current_run_df_urls.groupby('Discipline')
-                        for name, group in grouped: disc_total_urls = len(group); disc_unique_urls = group['PRIMARY_URL'].nunique(); disc_fail_status_df = group[group['STATUS'] == 'FAIL']; disc_total_fail_status = len(disc_fail_status_df); disc_unique_fail_status = disc_fail_status_df['PRIMARY_URL'].nunique(); disc_wbdg_warn_df = group[group['STATUS'] == 'WARN_WBDG_CONTENT_ERROR']; disc_total_wbdg_warns = len(disc_wbdg_warn_df); disc_unique_wbdg_warns = disc_wbdg_warn_df['PRIMARY_URL'].nunique(); discipline_summary_excel[name] = {'Total URLs': disc_total_urls, 'Total Failures (FAIL)': disc_total_fail_status, 'Total WBDG Content Warnings': disc_total_wbdg_warns, 'Unique URLs': disc_unique_urls, 'Unique Failures (FAIL)': disc_unique_fail_status, 'Unique WBDG Content Warnings': disc_unique_wbdg_warns, '% Total URLs Failure (FAIL)': None, '% Unique URLs Failure (FAIL)': None, '% Total URLs WBDG Warning': None, '% Unique URLs WBDG Warning': None}
-                    discipline_order_map = {"DIVISION 01": 0, "Electrical": 1}; current_summary_data_for_excel['By Discipline'] = dict(sorted(discipline_summary_excel.items(), key=lambda item: (item[0] == 'Other', discipline_order_map.get(item[0], 2), item[0])))
-                else: current_summary_data_for_excel['Overall'] = {'Total URL Entries Processed (in DataFrame)': 0, 'Unique Primary URLs Encountered': 0,'Total URL Failures (Status: FAIL)': 0, 'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)':0,'Total Error Occurrences (from error_counts dict)': 0, 'Unique URL Failures (Status: FAIL)': 0, 'Unique WBDG Content Warnings':0, 'Unique URLs with Errors (from error_counts dict)':0,'% Total Entries with Failures (Status: FAIL)': 0.0, '% Unique URLs with Failures (Status: FAIL)': 0.0,'% Total Entries with WBDG Warnings': 0.0, '% Unique URLs with WBDG Warnings': 0.0}; current_summary_data_for_excel['By Discipline'] = {}
+                        for name, group in grouped:
+                            disc_total_urls = len(group)
+                            disc_unique_urls = group['PRIMARY_URL'].nunique()
+                            disc_fail_status_df = group[group['STATUS'] == 'FAIL']
+                            disc_total_fail_status = len(disc_fail_status_df)
+                            disc_unique_fail_status = disc_fail_status_df['PRIMARY_URL'].nunique()
+                            disc_wbdg_warn_df = group[group['STATUS'] == 'WARN_WBDG_CONTENT_ERROR']
+                            disc_total_wbdg_warns = len(disc_wbdg_warn_df)
+                            disc_unique_wbdg_warns = disc_wbdg_warn_df['PRIMARY_URL'].nunique()
+                            discipline_summary_excel[name] = {
+                                'Total URLs': disc_total_urls,
+                                'Total Failures (FAIL)': disc_total_fail_status,
+                                'Total WBDG Content Warnings': disc_total_wbdg_warns,
+                                'Unique URLs': disc_unique_urls,
+                                'Unique Failures (FAIL)': disc_unique_fail_status,
+                                'Unique WBDG Content Warnings': disc_unique_wbdg_warns,
+                                '% Total URLs Failure (FAIL)': None,
+                                '% Unique URLs Failure (FAIL)': None,
+                                '% Total URLs WBDG Warning': None,
+                                '% Unique URLs WBDG Warning': None
+                            }
+                    discipline_order_map = {"DIVISION 01": 0, "Electrical": 1}
+                    current_summary_data_for_excel['By Discipline'] = dict(
+                        sorted(
+                            discipline_summary_excel.items(),
+                            key=lambda item: (item[0] == 'Other', discipline_order_map.get(item[0], 2), item[0])
+                        )
+                    )
+                else:
+                    current_summary_data_for_excel['Overall'] = {
+                        'Total URL Entries Processed (in DataFrame)': 0,
+                        'Unique Primary URLs Encountered': 0,
+                        'Total URL Failures (Status: FAIL)': 0,
+                        'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)': 0,
+                        'Total Error Occurrences (from error_counts dict)': 0,
+                        'Unique URL Failures (Status: FAIL)': 0,
+                        'Unique WBDG Content Warnings': 0,
+                        'Unique URLs with Errors (from error_counts dict)': 0,
+                        '% Total Entries with Failures (Status: FAIL)': 0.0,
+                        '% Unique URLs with Failures (Status: FAIL)': 0.0,
+                        '% Total Entries with WBDG Warnings': 0.0,
+                        '% Unique URLs with WBDG Warnings': 0.0
+                    }
+                    current_summary_data_for_excel['By Discipline'] = {}
 
-                overall_keys_ordered = ['Total URL Entries Processed (in DataFrame)', 'Unique Primary URLs Encountered', 'Total URL Failures (Status: FAIL)', 'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)', 'Total Error Occurrences (from error_counts dict)', 'Unique URL Failures (Status: FAIL)', 'Unique WBDG Content Warnings', 'Unique URLs with Errors (from error_counts dict)', '% Total Entries with Failures (Status: FAIL)', '% Unique URLs with Failures (Status: FAIL)', '% Total Entries with WBDG Warnings', '% Unique URLs with WBDG Warnings']
-                for key in overall_keys_ordered: value = current_summary_data_for_excel['Overall'].get(key, 0 if 'URL' in key or 'Failures' in key or 'Warnings' in key or 'Error' in key else (0.0 if '%' in key else "N/A")); label_cell = ws_summary.cell(row=current_row, column=1, value=key); label_cell.alignment = left_align; label_cell.fill = grey_fill_summary_label; value_cell = ws_summary.cell(row=current_row, column=2, value=value); overall_cells[key] = value_cell.coordinate; value_cell.alignment = center_align; current_row += 1
-                def set_percentage_formula(ws, tc, nc, dc, dv): cell = ws[tc]; cell.value = f'=IFERROR({nc}/{dc},0)' if dv > 0 else 0.0; cell.number_format = percent_format_string; cell.alignment = center_align
-                set_percentage_formula(ws_summary, overall_cells['% Total Entries with Failures (Status: FAIL)'], overall_cells["Total URL Failures (Status: FAIL)"], overall_cells["Total URL Entries Processed (in DataFrame)"], current_summary_data_for_excel['Overall'].get('Total URL Entries Processed (in DataFrame)', 0))
-                set_percentage_formula(ws_summary, overall_cells['% Unique URLs with Failures (Status: FAIL)'], overall_cells["Unique URL Failures (Status: FAIL)"], overall_cells["Unique Primary URLs Encountered"], current_summary_data_for_excel['Overall'].get('Unique Primary URLs Encountered', 0))
-                set_percentage_formula(ws_summary, overall_cells['% Total Entries with WBDG Warnings'], overall_cells["Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)"], overall_cells["Total URL Entries Processed (in DataFrame)"], current_summary_data_for_excel['Overall'].get('Total URL Entries Processed (in DataFrame)', 0))
-                set_percentage_formula(ws_summary, overall_cells['% Unique URLs with WBDG Warnings'], overall_cells["Unique WBDG Content Warnings"], overall_cells["Unique Primary URLs Encountered"], current_summary_data_for_excel['Overall'].get('Unique Primary URLs Encountered', 0))
-                overall_end_row = current_row - 1; current_row += 1
-                discipline_header_cell = ws_summary.cell(row=current_row, column=1, value="Summary by Discipline"); discipline_header_cell.font = header_font; discipline_header_cell.fill = header_fill; ws_summary.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=11); [ws_summary.cell(row=current_row, column=c).fill for c in range(1,12)]; current_row += 1; discipline_start_row = current_row
+                overall_keys_ordered = [
+                    'Total URL Entries Processed (in DataFrame)',
+                    'Unique Primary URLs Encountered',
+                    'Total URL Failures (Status: FAIL)',
+                    'Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)',
+                    'Total Error Occurrences (from error_counts dict)',
+                    'Unique URL Failures (Status: FAIL)',
+                    'Unique WBDG Content Warnings',
+                    'Unique URLs with Errors (from error_counts dict)',
+                    '% Total Entries with Failures (Status: FAIL)',
+                    '% Unique URLs with Failures (Status: FAIL)',
+                    '% Total Entries with WBDG Warnings',
+                    '% Unique URLs with WBDG Warnings'
+                ]
+                for key in overall_keys_ordered:
+                    value = current_summary_data_for_excel['Overall'].get(
+                        key,
+                        0 if 'URL' in key or 'Failures' in key or 'Warnings' in key or 'Error' in key else (0.0 if '%' in key else "N/A")
+                    )
+                    label_cell = ws_summary.cell(row=current_row, column=1, value=key)
+                    label_cell.alignment = left_align
+                    label_cell.fill = grey_fill_summary_label
+                    value_cell = ws_summary.cell(row=current_row, column=2, value=value)
+                    overall_cells[key] = value_cell.coordinate
+                    value_cell.alignment = center_align
+                    current_row += 1
+
+                def set_percentage_formula(ws, tc, nc, dc, dv):
+                    cell = ws[tc]
+                    cell.value = f'=IFERROR({nc}/{dc},0)' if dv > 0 else 0.0
+                    cell.number_format = percent_format_string
+                    cell.alignment = center_align
+
+                set_percentage_formula(
+                    ws_summary,
+                    overall_cells['% Total Entries with Failures (Status: FAIL)'],
+                    overall_cells["Total URL Failures (Status: FAIL)"],
+                    overall_cells["Total URL Entries Processed (in DataFrame)"],
+                    current_summary_data_for_excel['Overall'].get('Total URL Entries Processed (in DataFrame)', 0)
+                )
+                set_percentage_formula(
+                    ws_summary,
+                    overall_cells['% Unique URLs with Failures (Status: FAIL)'],
+                    overall_cells["Unique URL Failures (Status: FAIL)"],
+                    overall_cells["Unique Primary URLs Encountered"],
+                    current_summary_data_for_excel['Overall'].get('Unique Primary URLs Encountered', 0)
+                )
+                set_percentage_formula(
+                    ws_summary,
+                    overall_cells['% Total Entries with WBDG Warnings'],
+                    overall_cells["Total WBDG Content Warnings (Status: WARN_WBDG_CONTENT_ERROR)"],
+                    overall_cells["Total URL Entries Processed (in DataFrame)"],
+                    current_summary_data_for_excel['Overall'].get('Total URL Entries Processed (in DataFrame)', 0)
+                )
+                set_percentage_formula(
+                    ws_summary,
+                    overall_cells['% Unique URLs with WBDG Warnings'],
+                    overall_cells["Unique WBDG Content Warnings"],
+                    overall_cells["Unique Primary URLs Encountered"],
+                    current_summary_data_for_excel['Overall'].get('Unique Primary URLs Encountered', 0)
+                )
+                overall_end_row = current_row - 1
+                current_row += 1
+                discipline_header_cell = ws_summary.cell(row=current_row, column=1, value="Summary by Discipline")
+                discipline_header_cell.font = header_font
+                discipline_header_cell.fill = header_fill
+                ws_summary.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=11)
+                [ws_summary.cell(row=current_row, column=c).fill for c in range(1, 12)]
+                current_row += 1
+                discipline_start_row = current_row
                 if current_summary_data_for_excel['By Discipline']:
-                    disc_headers_ordered = ['Total URLs', 'Total Failures (FAIL)', 'Total WBDG Content Warnings', 'Unique URLs', 'Unique Failures (FAIL)', 'Unique WBDG Content Warnings', '% Total URLs Failure (FAIL)', '% Unique URLs Failure (FAIL)', '% Total URLs WBDG Warning', '% Unique URLs WBDG Warning']
-                    ws_summary.cell(row=current_row, column=1, value="Discipline").font = sub_header_font; ws_summary.cell(row=current_row, column=1).fill = grey_fill_summary_label; ws_summary.cell(row=current_row, column=1).border = thin_border; ws_summary.cell(row=current_row, column=1).alignment = left_align
-                    for col_idx, header in enumerate(disc_headers_ordered): cell = ws_summary.cell(row=current_row, column=col_idx + 2, value=header); cell.font = sub_header_font; cell.fill = grey_fill_summary_label; cell.border = thin_border; cell.alignment = center_align
+                    disc_headers_ordered = [
+                        'Total URLs',
+                        'Total Failures (FAIL)',
+                        'Total WBDG Content Warnings',
+                        'Unique URLs',
+                        'Unique Failures (FAIL)',
+                        'Unique WBDG Content Warnings',
+                        '% Total URLs Failure (FAIL)',
+                        '% Unique URLs Failure (FAIL)',
+                        '% Total URLs WBDG Warning',
+                        '% Unique URLs WBDG Warning'
+                    ]
+                    ws_summary.cell(row=current_row, column=1, value="Discipline").font = sub_header_font
+                    ws_summary.cell(row=current_row, column=1).fill = grey_fill_summary_label
+                    ws_summary.cell(row=current_row, column=1).border = thin_border
+                    ws_summary.cell(row=current_row, column=1).alignment = left_align
+                    for col_idx, header in enumerate(disc_headers_ordered):
+                        cell = ws_summary.cell(row=current_row, column=col_idx + 2, value=header)
+                        cell.font = sub_header_font
+                        cell.fill = grey_fill_summary_label
+                        cell.border = thin_border
+                        cell.alignment = center_align
                     current_row += 1
                     for discipline, stats in current_summary_data_for_excel['By Discipline'].items():
-                        ws_summary.cell(row=current_row, column=1, value=discipline).font = sub_header_font; ws_summary.cell(row=current_row, column=1).border = thin_border; ws_summary.cell(row=current_row, column=1).alignment = left_align; discipline_cells = {}; col_idx = 2
-                        for key in disc_headers_ordered: value = stats.get(key, 0 if 'URL' in key or 'Failures' in key or 'Warning' in key else (0.0 if '%' in key else "N/A")); cell = ws_summary.cell(row=current_row, column=col_idx, value=value); discipline_cells[key] = cell.coordinate; cell.border = thin_border; cell.alignment = center_align; col_idx += 1
-                        set_percentage_formula(ws_summary, discipline_cells['% Total URLs Failure (FAIL)'], discipline_cells["Total Failures (FAIL)"], discipline_cells["Total URLs"], stats.get('Total URLs',0))
-                        set_percentage_formula(ws_summary, discipline_cells['% Unique URLs Failure (FAIL)'], discipline_cells["Unique Failures (FAIL)"], discipline_cells["Unique URLs"], stats.get('Unique URLs',0))
-                        set_percentage_formula(ws_summary, discipline_cells['% Total URLs WBDG Warning'], discipline_cells["Total WBDG Content Warnings"], discipline_cells["Total URLs"], stats.get('Total URLs',0))
-                        set_percentage_formula(ws_summary, discipline_cells['% Unique URLs WBDG Warning'], discipline_cells["Unique WBDG Content Warnings"], discipline_cells["Unique URLs"], stats.get('Unique URLs',0))
+                        ws_summary.cell(row=current_row, column=1, value=discipline).font = sub_header_font
+                        ws_summary.cell(row=current_row, column=1).border = thin_border
+                        ws_summary.cell(row=current_row, column=1).alignment = left_align
+                        discipline_cells = {}
+                        col_idx = 2
+                        for key in disc_headers_ordered:
+                            value = stats.get(
+                                key,
+                                0 if 'URL' in key or 'Failures' in key or 'Warning' in key else (0.0 if '%' in key else "N/A")
+                            )
+                            cell = ws_summary.cell(row=current_row, column=col_idx, value=value)
+                            discipline_cells[key] = cell.coordinate
+                            cell.border = thin_border
+                            cell.alignment = center_align
+                            col_idx += 1
+                        set_percentage_formula(
+                            ws_summary,
+                            discipline_cells['% Total URLs Failure (FAIL)'],
+                            discipline_cells["Total Failures (FAIL)"],
+                            discipline_cells["Total URLs"],
+                            stats.get('Total URLs', 0)
+                        )
+                        set_percentage_formula(
+                            ws_summary,
+                            discipline_cells['% Unique URLs Failure (FAIL)'],
+                            discipline_cells["Unique Failures (FAIL)"],
+                            discipline_cells["Unique URLs"],
+                            stats.get('Unique URLs', 0)
+                        )
+                        set_percentage_formula(
+                            ws_summary,
+                            discipline_cells['% Total URLs WBDG Warning'],
+                            discipline_cells["Total WBDG Content Warnings"],
+                            discipline_cells["Total URLs"],
+                            stats.get('Total URLs', 0)
+                        )
+                        set_percentage_formula(
+                            ws_summary,
+                            discipline_cells['% Unique URLs WBDG Warning'],
+                            discipline_cells["Unique WBDG Content Warnings"],
+                            discipline_cells["Unique URLs"],
+                            stats.get('Unique URLs', 0)
+                        )
                         current_row += 1
-                else: ws_summary.cell(row=current_row, column=1, value="No discipline data found."); current_row +=1
-                discipline_end_row = current_row - 1; [[ws_summary.cell(row=r, column=c).border for c in range(1, 3)] for r in range(overall_start_row, overall_end_row + 1)]; [[ws_summary.cell(row=r_idx, column=c_idx_d).border for c_idx_d in range(1, 12)] for r_idx in range(discipline_start_row, discipline_end_row + 1) if current_summary_data_for_excel['By Discipline']]
+                else:
+                    ws_summary.cell(row=current_row, column=1, value="No discipline data found.")
+                    current_row += 1
+                discipline_end_row = current_row - 1
+                [[ws_summary.cell(row=r, column=c).border for c in range(1, 3)] for r in range(overall_start_row, overall_end_row + 1)]
+                [[ws_summary.cell(row=r_idx, column=c_idx_d).border for c_idx_d in range(1, 12)] for r_idx in range(discipline_start_row, discipline_end_row + 1) if current_summary_data_for_excel['By Discipline']]
 
                 if current_run_df_urls.empty: df_to_save = pd.DataFrame(columns=output_columns_main)
                 else:
@@ -526,34 +779,66 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
 
                 df_to_save = df_to_save.fillna('')
                 df_to_save.to_excel(writer, index=False, sheet_name=main_sheet_name)
-                ws_main = writer.sheets[main_sheet_name]; ws_main.freeze_panes = "A2"
-                df_file_metadata.to_excel(writer, index=False, sheet_name=file_list_sheet_name); ws_file_list = writer.sheets[file_list_sheet_name]; ws_file_list.freeze_panes = "A2"
-                if not df_file_metadata.empty: table_files = Table(displayName="FileListTable", ref=f"A1:{get_column_letter(len(output_columns_filelist))}{len(df_file_metadata)+1}"); table_files.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False);_ = [ws_file_list.add_table(table_files) for t in ws_file_list._tables if t.name != table_files.displayName] if not any(t.name == table_files.displayName for t in ws_file_list._tables) else None
-                ws_spec_list = writer.book.create_sheet(spec_list_sheet_name); ws_spec_list['A1'] = "UFGS"; ws_spec_list['B1'] = "Discipline"
+                ws_main = writer.sheets[main_sheet_name]
+                ws_main.freeze_panes = "A2"
+                df_file_metadata.to_excel(writer, index=False, sheet_name=file_list_sheet_name)
+                ws_file_list = writer.sheets[file_list_sheet_name]
+                ws_file_list.freeze_panes = "A2"
+                if not df_file_metadata.empty:
+                    table_files = Table(displayName="FileListTable", ref=f"A1:{get_column_letter(len(output_columns_filelist))}{len(df_file_metadata)+1}")
+                    table_files.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False)
+                    _ = [ws_file_list.add_table(table_files) for t in ws_file_list._tables if t.name != table_files.displayName] if not any(t.name == table_files.displayName for t in ws_file_list._tables) else None
+                ws_spec_list = writer.book.create_sheet(spec_list_sheet_name)
+                ws_spec_list['A1'] = "UFGS"
+                ws_spec_list['B1'] = "Discipline"
                 # Corrected line for writing spec list data
                 for i, (spec, discipline_val) in enumerate(TARGET_SPECS_DATA):
                     ws_spec_list.cell(row=i + 2, column=1, value=spec)
                     ws_spec_list.cell(row=i + 2, column=2, value=discipline_val)
                 ws_spec_list.freeze_panes = "A2"
-                if TARGET_SPECS_DATA: table_spec = Table(displayName="SpecListTable", ref=f"A1:B{len(TARGET_SPECS_DATA)+1}"); table_spec.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showFirstColumn=False,showLastColumn=False, showRowStripes=True, showColumnStripes=False); _ = [ws_spec_list.add_table(table_spec) for t in ws_spec_list._tables if t.name != table_spec.displayName] if not any(t.name == table_spec.displayName for t in ws_spec_list._tables) else None
+                if TARGET_SPECS_DATA:
+                    table_spec = Table(displayName="SpecListTable", ref=f"A1:B{len(TARGET_SPECS_DATA)+1}")
+                    table_spec.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False)
+                    _ = [ws_spec_list.add_table(table_spec) for t in ws_spec_list._tables if t.name != table_spec.displayName] if not any(t.name == table_spec.displayName for t in ws_spec_list._tables) else None
 
-                red_fill = PatternFill(start_color='FFC7CE',fill_type='solid'); red_font = Font(color='9C0006')
-                green_fill = PatternFill(start_color='C6EFCE',fill_type='solid'); green_font = Font(color='006100')
-                orange_fill = PatternFill(start_color='FFD9B3',fill_type='solid'); orange_font = Font(color='A65B00')
-                grey_fill_error = PatternFill(start_color='D9D9D9',fill_type='solid'); grey_font_error = Font(color='595959')
+                red_fill = PatternFill(start_color='FFC7CE', fill_type='solid')
+                red_font = Font(color='9C0006')
+                green_fill = PatternFill(start_color='C6EFCE', fill_type='solid')
+                green_font = Font(color='006100')
+                orange_fill = PatternFill(start_color='FFD9B3', fill_type='solid')
+                orange_font = Font(color='A65B00')
+                grey_fill_error = PatternFill(start_color='D9D9D9', fill_type='solid')
+                grey_font_error = Font(color='595959')
 
                 if len(df_to_save) > 0:
                     formatting_range_main = f"A2:{get_column_letter(len(output_columns_main))}{len(df_to_save) + 1}"
                     try:
                         status_col_letter_main = get_column_letter(output_columns_main.index('STATUS') + 1)
                         for f_str, font, fill in [(f'${status_col_letter_main}2="PASS"', green_font, green_fill), (f'${status_col_letter_main}2="FAIL"', red_font, red_fill), (f'${status_col_letter_main}2="WARN_WBDG_CONTENT_ERROR"', orange_font, orange_fill), (f'OR(${status_col_letter_main}2="PROCESSING_ERROR", ${status_col_letter_main}2="NOT_MAPPED", ${status_col_letter_main}2="BATCH_ITEM_ERROR", ${status_col_letter_main}2="BATCH_LENGTH_ERROR", ${status_col_letter_main}2="BATCH_TYPE_ERROR", ${status_col_letter_main}2="BATCH_CALL_EXCEPTION", ${status_col_letter_main}2="BATCH_MISSING_RESULT", ${status_col_letter_main}2="ASYNC_OVERALL_ERROR", ${status_col_letter_main}2="ERROR_IN_LOOP", ${status_col_letter_main}2="FAIL_WORKER")', grey_font_error, grey_fill_error)]: ws_main.conditional_formatting.add(formatting_range_main, FormulaRule(formula=[f_str], stopIfTrue=False, font=font, fill=fill))
-                    except ValueError: debug_print("Error finding 'STATUS' column for conditional formatting.")
-                if output_columns_main and len(df_to_save) > 0 : table_main = Table(displayName="URLCheckTable", ref=f"A1:{get_column_letter(len(output_columns_main))}{len(df_to_save) + 1}"); table_main.tableStyleInfo = TableStyleInfo(name="TableStyleLight9", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False); _ = [ws_main.add_table(table_main) for t in ws_main._tables if t.name != table_main.displayName] if not any(t.name == table_main.displayName for t in ws_main._tables) else None
-                auto_fit_columns(ws_summary, columns_to_fit=['A', 'B']); auto_fit_columns(ws_main); auto_fit_columns(ws_file_list); auto_fit_columns(ws_spec_list)
+                    except ValueError:
+                        debug_print("Error finding 'STATUS' column for conditional formatting.")
+                if output_columns_main and len(df_to_save) > 0:
+                    table_main = Table(displayName="URLCheckTable", ref=f"A1:{get_column_letter(len(output_columns_main))}{len(df_to_save) + 1}")
+                    table_main.tableStyleInfo = TableStyleInfo(name="TableStyleLight9", showFirstColumn=False, showLastColumn=False, showRowStripes=True, showColumnStripes=False)
+                    _ = [ws_main.add_table(table_main) for t in ws_main._tables if t.name != table_main.displayName] if not any(t.name == table_main.displayName for t in ws_main._tables) else None
+                auto_fit_columns(ws_summary, columns_to_fit=['A', 'B'])
+                auto_fit_columns(ws_main)
+                auto_fit_columns(ws_file_list)
+                auto_fit_columns(ws_spec_list)
                 desired_order = [summary_sheet_name, main_sheet_name, file_list_sheet_name, spec_list_sheet_name]
-                current_sheet_titles = [s.title for s in writer.book._sheets]; writer.book._sheets = sorted(writer.book._sheets, key=lambda s: (desired_order.index(s.title) if s.title in desired_order else len(desired_order))) if all(sn in current_sheet_titles for sn in desired_order) else writer.book._sheets
+                current_sheet_titles = [s.title for s in writer.book._sheets]
+                writer.book._sheets = (
+                    sorted(
+                        writer.book._sheets,
+                        key=lambda s: (desired_order.index(s.title) if s.title in desired_order else len(desired_order))
+                    )
+                    if all(sn in current_sheet_titles for sn in desired_order)
+                    else writer.book._sheets
+                )
                 debug_print(f"[{run_label}] Excel file created: {run_specific_excel_path}")
-        except Exception as e_excel: print(f"[{run_label}] Excel saving error: {e_excel}"); traceback.print_exc()
+        except Exception as e_excel:
+            print(f"[{run_label}] Excel saving error: {e_excel}")
+            traceback.print_exc()
 
     final_proc_time = time.time() - script_start_time
     print(f"\n[{run_label}] Total Processing Time: {time.strftime('%H:%M:%S', time.gmtime(final_proc_time))}")
@@ -586,7 +871,8 @@ async def run_concurrency_comparison_test():
     if not os.path.exists(zip_file_path):
         print("Initial zip download for comparison test...")
         if not ufgs_download_url or "REPLACE_WITH_CORRECT_UFGS_ZIP_DOWNLOAD_LINK" in ufgs_download_url:
-            print("Error: UFGS download URL not set. Exiting test."); return
+            print("Error: UFGS download URL not set. Exiting test.")
+            return
         try:
             with httpx.Client(verify=False) as client:
                 with client.stream("GET", ufgs_download_url, follow_redirects=True, timeout=60.0) as response:
@@ -595,7 +881,9 @@ async def run_concurrency_comparison_test():
                         for chunk in response.iter_bytes(8192):
                             f.write(chunk)
             print(f"Initial download complete: {zip_file_path}")
-        except Exception as e: print(f"Initial download error: {e}"); return
+        except Exception as e:
+            print(f"Initial download error: {e}")
+            return
 
     print("\n--- Running with 1 Worker ---")
     df_run1 = await async_process_all_ufgs_data(run_label="1_worker", concurrency_level_override=1, save_excel=False)
@@ -604,16 +892,24 @@ async def run_concurrency_comparison_test():
     df_run2 = await async_process_all_ufgs_data(run_label="100_workers_use_cache", concurrency_level_override=100, save_excel=False)
 
     print("\n\n--- DataFrame Comparison Results ---")
-    if df_run1.empty and df_run2.empty: print("Both runs resulted in empty DataFrames. Nothing to compare."); return
-    if df_run1.empty: print("DataFrame from 1-worker run is empty. Cannot compare."); return
-    if df_run2.empty: print("DataFrame from 100-worker run is empty. Cannot compare."); return
+    if df_run1.empty and df_run2.empty:
+        print("Both runs resulted in empty DataFrames. Nothing to compare.")
+        return
+    if df_run1.empty:
+        print("DataFrame from 1-worker run is empty. Cannot compare.")
+        return
+    if df_run2.empty:
+        print("DataFrame from 100-worker run is empty. Cannot compare.")
+        return
     if 'PRIMARY_URL' not in df_run1.columns or 'PRIMARY_URL' not in df_run2.columns:
-        print("Error: 'PRIMARY_URL' column missing. Cannot compare."); return
+        print("Error: 'PRIMARY_URL' column missing. Cannot compare.")
+        return
 
     compare_cols = ['STATUS', 'RESPONSE_CODE', 'FINAL_URL', 'ERROR_MSG', 'CHECK_CERTAINTY', 'IS_WBDG']
     for df_temp in [df_run1, df_run2]:
         for col_c in compare_cols:
-            if col_c not in df_temp.columns: df_temp[col_c] = pd.NA
+            if col_c not in df_temp.columns:
+                df_temp[col_c] = pd.NA
 
     merged_df = pd.merge(
         df_run1[['PRIMARY_URL'] + compare_cols].fillna("DF1_NA_FILL"),
@@ -635,10 +931,13 @@ async def run_concurrency_comparison_test():
         if discrepancy_details:
             differences_found += 1
             print(f"\nDiscrepancy for URL: {url}")
-            for detail in discrepancy_details: print(detail)
+            for detail in discrepancy_details:
+                print(detail)
 
-    if differences_found == 0: print("\nNo differences found in validation results between 1-worker and 100-worker runs.")
-    else: print(f"\nFound differences for {differences_found} URLs.")
+    if differences_found == 0:
+        print("\nNo differences found in validation results between 1-worker and 100-worker runs.")
+    else:
+        print(f"\nFound differences for {differences_found} URLs.")
     print("\n--- Concurrency Comparison Test Finished ---")
 
 # --- Wrapper function to be called from a new Colab cell using await ---
