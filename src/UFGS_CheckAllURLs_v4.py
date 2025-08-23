@@ -35,7 +35,9 @@ try:
 except ImportError as e:
     print(f"CRITICAL ERROR: Could not import required async components from 'reachable': {e}")
     print("Please ensure 'reachable==0.7.0' (AlexMili/Reachable on PyPI) is installed correctly.")
-    is_reachable_async_func = lambda *args, **kwargs: asyncio.sleep(0)
+    async def placeholder_is_reachable_async(*args, **kwargs):
+        await asyncio.sleep(0)
+    is_reachable_async_func = placeholder_is_reachable_async
     class AsyncClientPlaceholder:
         async def __aenter__(self): await asyncio.sleep(0); return self
         async def __aexit__(self, *args): await asyncio.sleep(0)
