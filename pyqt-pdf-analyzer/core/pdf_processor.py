@@ -76,8 +76,3 @@ class PDFProcessor(QObject):
                 self.pipeline.document.close()
                 self.pipeline.document = None
                 self.pipeline.page_metadata.clear()
-
-@property
-def document(self):
-    """Provide backward compatibility for code expecting document attribute."""
-    return self.pipeline.document

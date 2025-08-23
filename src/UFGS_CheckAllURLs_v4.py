@@ -35,7 +35,9 @@ try:
 except ImportError as e:
     print(f"CRITICAL ERROR: Could not import required async components from 'reachable': {e}")
     print("Please ensure 'reachable==0.7.0' (AlexMili/Reachable on PyPI) is installed correctly.")
-    is_reachable_async_func = lambda *args, **kwargs: asyncio.sleep(0)
+    async def placeholder_is_reachable_async(*args, **kwargs):
+        await asyncio.sleep(0)
+    is_reachable_async_func = placeholder_is_reachable_async
     class AsyncClientPlaceholder:
         async def __aenter__(self):
             await asyncio.sleep(0)
@@ -875,7 +877,9 @@ async def run_concurrency_comparison_test():
             with httpx.Client(verify=False) as client:
                 with client.stream("GET", ufgs_download_url, follow_redirects=True, timeout=60.0) as response:
                     response.raise_for_status()
-                    with open(zip_file_path, 'wb') as f: [f.write(chunk) for chunk in response.iter_bytes(8192)]
+                    with open(zip_file_path, 'wb') as f:
+                        for chunk in response.iter_bytes(8192):
+                            f.write(chunk)
             print(f"Initial download complete: {zip_file_path}")
         except Exception as e:
             print(f"Initial download error: {e}")
