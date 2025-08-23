@@ -332,7 +332,9 @@ async def async_process_all_ufgs_data(run_label:str = "default_run", concurrency
             with httpx.Client(verify=False) as client:
                 with client.stream("GET", ufgs_download_url, follow_redirects=True, timeout=60.0) as response:
                     response.raise_for_status()
-                    with open(zip_file_path, 'wb') as f: [f.write(chunk) for chunk in response.iter_bytes(8192)]
+                    with open(zip_file_path, 'wb') as f:
+                        for chunk in response.iter_bytes(8192):
+                            f.write(chunk)
             print(f"[{run_label}] Download complete: {zip_file_path}")
         except Exception as e: print(f"[{run_label}] Download error: {e}"); return pd.DataFrame()
     elif os.path.exists(zip_file_path):
@@ -587,7 +589,9 @@ async def run_concurrency_comparison_test():
             with httpx.Client(verify=False) as client:
                 with client.stream("GET", ufgs_download_url, follow_redirects=True, timeout=60.0) as response:
                     response.raise_for_status()
-                    with open(zip_file_path, 'wb') as f: [f.write(chunk) for chunk in response.iter_bytes(8192)]
+                    with open(zip_file_path, 'wb') as f:
+                        for chunk in response.iter_bytes(8192):
+                            f.write(chunk)
             print(f"Initial download complete: {zip_file_path}")
         except Exception as e: print(f"Initial download error: {e}"); return
 
