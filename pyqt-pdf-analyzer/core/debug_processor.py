@@ -1,7 +1,6 @@
 import time
 import traceback
 import logging
-import sys
 from typing import Any, Dict, Callable, Optional
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -10,6 +9,10 @@ from PIL import Image
 import io
 
 from services.PDFPipelineService import PDFPipelineService
+
+
+logger = logging.getLogger(__name__)
+
 
 class DebugPDFProcessor(QObject):
     """Debug wrapper executing each pipeline step with metrics."""
@@ -43,7 +46,8 @@ class DebugPDFProcessor(QObject):
                 tracemalloc.start()
             current, _ = tracemalloc.get_traced_memory()
             return current / 1024 / 1024
-        except Exception:
+        except (ImportError, RuntimeError) as e:
+            logger.debug("Could not determine memory usage: %s", e)
             return 0.0
 
     def _measure_step(self, step_name: str, func: Callable, *args, **kwargs) -> Any:
@@ -67,9 +71,9 @@ class DebugPDFProcessor(QObject):
             self.step_completed.emit(step_name, metrics)
             return result
         except Exception as e:
-            error_msg = f"{e}\n{traceback.format_exc()}"
+            error_msg = traceback.format_exc()
             self.step_failed.emit(step_name, error_msg, context)
-            logging.error(f"Debug step {step_name} failed: {error_msg} | Context: {context}")
+            logger.exception("Debug step %s failed | Context: %s", step_name, context)
             raise
 
     def execute_step(self, step_name: str, **params) -> Any:

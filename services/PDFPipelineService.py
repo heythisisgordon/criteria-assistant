@@ -1,12 +1,18 @@
 from typing import Dict, Any, Optional
+import io
+import logging
+
 import fitz
 from PIL import Image, ImageDraw
-import io
+
 from core.annotation_system import AnnotationManager, AnnotationType
 from core.metadata_builder import PageMetadataBuilder
 from core.page_metadata import PageMetadata
 from models.DocumentInfo import DocumentInfo
 from models.AnnotationSummary import AnnotationSummary
+
+
+logger = logging.getLogger(__name__)
 
 class PDFPipelineService:
     """Service implementing the 8-step PDF processing pipeline."""
@@ -31,7 +37,8 @@ class PDFPipelineService:
             self.current_text = ""
             self.current_image = None
             return True
-        except Exception:
+        except (fitz.FileDataError, FileNotFoundError, RuntimeError) as e:
+            logger.exception("Failed to open document %s: %s", path, e)
             return False
 
     def get_info(self) -> DocumentInfo:
