@@ -80,8 +80,8 @@ class KeywordManager:
             if not all(col in df.columns for col in required_cols):
                 raise ValueError(f"CSV must contain columns: {required_cols}")
             return [factory(row) for _, row in df.iterrows()]
-        except Exception:
-            logger.exception("Error loading records from %s", csv_path)
+        except (FileNotFoundError, pd.errors.ParserError, pd.errors.EmptyDataError, ValueError) as e:
+            logger.exception("Error loading records from %s: %s", csv_path, e)
             return None
         
     def load_keywords(self, csv_path: str = None) -> bool:

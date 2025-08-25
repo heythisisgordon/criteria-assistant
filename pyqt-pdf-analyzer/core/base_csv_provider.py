@@ -39,8 +39,8 @@ class BaseCSVAnnotationProvider(AnnotationProvider):
             self._post_load()
             logger.debug("Annotation data load successful")
             return True
-        except Exception:
-            logger.exception("Error loading data")
+        except (FileNotFoundError, pd.errors.ParserError, pd.errors.EmptyDataError, ValueError) as e:
+            logger.exception("Error loading data from %s: %s", source_path, e)
             return False
 
     def get_categories(self) -> Set[str]:
